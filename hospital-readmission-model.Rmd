@@ -15,8 +15,44 @@ library(gridExtra)
 library(GGally) 
 library(leaps) 
 library(glmnet)
+library(faraway)
+library(forcats)
+library(ISLR)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(knitr)
 ```
 
-```{r, warning=FALSE}
-diabetes_readmit <- read_csv("https://www.dropbox.com/s/odtsp7foaugu694/diabetes_data_clean.csv?dl=1")
+```{r, warning=FALSE, message=FALSE}
+diabetes <- read_csv("https://www.dropbox.com/s/odtsp7foaugu694/diabetes_data_clean.csv?dl=1")
+```
+
+I want to find out characteristics about patients who were readmitted before 30 days was up. 
+
+```{r}
+kable(
+  diabetes %>% 
+    group_by(readmitted) %>% 
+    count(),
+  align = c("l", "c"),
+  caption = "Table 1: Readmission Categories"
+)
+```
+
+```{r}
+earlyadmit_tree <- rpart(readmitted ~ .,
+                 data=diabetes)
+rpart.plot(earlyadmit_tree)
+```
+Another tree to see if I can get better detail in the visuals
+```{r}
+rpart.plot(earlyadmit_tree, # middle graph
+type=4,
+extra=101, 
+box.palette="GnBu",
+branch.lty=3, 
+shadow.col="gray", 
+nn=TRUE
+)
 ```
