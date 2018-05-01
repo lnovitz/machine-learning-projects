@@ -1,0 +1,128 @@
+---
+title: "Final Takehome Movie Data"
+author: "Xinwei Huang"
+date: "2018 0501"
+output: html_document
+---
+
+---
+title: "Midterm"
+author: "Xinwei Huang"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r,echo = FALSE,message=FALSE}
+library(ggplot2,warn.conflicts = FALSE)
+library(dplyr,warn.conflicts = FALSE)
+library(tidyr,warn.conflicts = FALSE)
+library(readr,warn.conflicts = FALSE)
+library(gridExtra,warn.conflicts = FALSE)
+library(GGally,warn.conflicts = FALSE) 
+library(leaps,warn.conflicts = FALSE) 
+library(glmnet,warn.conflicts = FALSE)
+library(purrr,warn.conflicts = FALSE)
+library(jsonlite,warn.conflicts = FALSE)
+library(curl,warn.conflicts = FALSE)
+```
+
+```{r}
+tmdb <- read_csv("https://www.dropbox.com/s/sesaejgna9fkg1q/tmdb_5000.csv?dl=1")
+```
+
+```{r}
+#Returns the first two characters listed in the credits in their own columns. 
+#There is a unique row for each movie ID with at least one character.
+
+chars <-
+  tmdb %>% 
+  select(id, cast) %>% 
+  filter(nchar(cast)>2) %>% 
+  mutate(js=map(cast,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(char1 = first(character),
+            char2 = nth(character, n=2))
+
+#Returns the first two genres reported in their own columns. 
+#There is a unique row for each movie ID with at least one genre.
+
+genres <-
+  tmdb %>% 
+  select(id, genres) %>% 
+  filter(nchar(genres)>2) %>% 
+  mutate(js = map(genres,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(genre1 = first(name),
+            genre2 = nth(name, n=2))
+
+#Returns the first two key words reported in their own columns. 
+#There is a unique row for each movie ID with at least one keyword.
+
+keywords <-
+  tmdb %>% 
+  select(id, keywords) %>% 
+  filter(nchar(keywords)>2) %>% 
+  mutate(js = map(keywords,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(keyword1 = first(name),
+            keyword2 = nth(name, n=2))
+
+
+#Returns the first production company. 
+#There is a unique row for each movie ID with at least one production company
+
+production_company <-
+  tmdb %>% 
+  select(id, production_companies) %>% 
+  filter(nchar(production_companies)>2) %>% 
+  mutate(js = map(production_companies,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(prod_comp_main = first(name))
+
+#Returns the first production country. 
+#There is a unique row for each movie ID with at least one production country
+
+production_country <-
+  tmdb %>% 
+  select(id, production_countries) %>% 
+  filter(nchar(production_countries)>2) %>% 
+  mutate(js = map(production_countries,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(country_main = first(iso_3166_1))
+
+#Combine the tables created above with the original data and drops some of the columns.
+
+tmdb_enhanced <-
+  tmdb %>% 
+  select(-genres, -keywords, -production_companies, -production_countries,
+         -spoken_languages, -cast, -crew) %>% 
+  left_join(chars, 
+            by = "id") %>% 
+  left_join(genres, 
+            by = "id") %>% 
+  left_join(keywords, 
+            by = "id") %>% 
+  left_join(production_country,
+            by = "id") %>% 
+  left_join(production_company, 
+            by = "id")
+```
+
+
+```{r,message=FALSE}
+budget <- qplot(tmdb$budget, geom="histogram")
+popularity <- qplot(tmdb$popularity, geom="histogram")
+revenue <- qplot(tmdb$revenue, geom="histogram")
+runtime <- qplot(tmdb$runtime, geom="histogram")
+vote_average <- qplot(tmdb$vote_average, geom="histogram")
+vote_count <- qplot(tmdb$vote_count, geom="histogram")
+ 
+
+grid.arrange(budget,popularity,revenue,runtime,vote_average,vote_count, ncol=3)
+```
