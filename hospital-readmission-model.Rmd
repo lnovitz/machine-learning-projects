@@ -43,7 +43,10 @@ kable(
 ```{r}
 earlyadmit_tree <- rpart(readmitted ~ .,
                  data=diabetes)
-rpart.plot(earlyadmit_tree)
+```
+
+```{r}
+rpart.plot(earlyadmit_tree, under=FALSE, varlen = 0, yesno = 2, ycompress = TRUE)
 ```
 Another tree to see if I can get better detail in the visuals
 ```{r}
@@ -56,3 +59,5 @@ shadow.col="gray",
 nn=TRUE
 )
 ```
+
+To be continued...nonparametric models!
