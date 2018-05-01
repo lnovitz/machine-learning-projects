@@ -5,14 +5,18 @@ date: "5/1/2018"
 output: html_document
 ---
 
-```{r}
+```{r, warning=FALSE}
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(tibble)
 library(readr)
+library(gridExtra)
+library(GGally) 
+library(leaps) 
+library(glmnet)
 ```
 
-```{r}
+```{r, warning=FALSE}
 diabetes_readmit <- read_csv("https://www.dropbox.com/s/odtsp7foaugu694/diabetes_data_clean.csv?dl=1")
 ```
