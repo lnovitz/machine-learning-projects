@@ -26,8 +26,164 @@ library(knitr)
 
 ```{r, warning=FALSE, message=FALSE}
 diabetes <- read_csv("https://www.dropbox.com/s/odtsp7foaugu694/diabetes_data_clean.csv?dl=1")
+summary(diabetes)
 ```
 
+```{r}
+diabetes %>% 
+    group_by(race) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(gender) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(age) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(time_in_hospital) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(num_lab_procedures) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(num_procedures) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(num_medications) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(number_outpatient) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(number_emergency) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(number_inpatient) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(number_diagnoses) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(max_glu_serum) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(A1Cresult) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(metformin) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(glimepiride) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(glipizide) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(glyburide) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(pioglitazone) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(rosiglitazone) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(insulin) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(change) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(diabetesMed) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(readmitted) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(admission_source) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(admission_type) %>% 
+    count()
+```
+
+```{r}
+diabetes %>% 
+    group_by(discharge_disposition) %>% 
+    count()
+```
 I want to find out characteristics about patients who were readmitted before 30 days was up. 
 
 ```{r}
