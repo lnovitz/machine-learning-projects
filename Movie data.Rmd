@@ -161,7 +161,7 @@ kable(
 ```
 
 
-Next, we analyzes the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count means there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make a better special effects in the movie and thus make it more attractive. And longer runtime means the movie has longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variabels are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable. 
+Next, we analyzes the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count means there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make a better special effects in the movie and thus make it more attractive. And longer runtime means the movie has longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variabels are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable by establishing simple linear regressions. 
 
 ```{r,message=FALSE}
 budgetmod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$budget)
@@ -198,3 +198,28 @@ runtimer <- tmdb_enhanced %>%
 grid.arrange(budgetr,popularityr,runtimer,voteaverager,votecountr, ncol=3)
 ```
 
+We can see from those plots that budget variable and vote_count variable have good linear relationship with revenue. The rest three variables don't have obvious linear relationship with revenue, but the simple model regressions shows that they are statistically significant in interpreting the revenue. So, we are going to use all of those 5 variables as independent variables. 
+
+### Part III: Checking Model Assumptions
+After exploring the data, we want to biuld up a model including all variables we found suitable to predict revenue, and check model assumptions to decide if we want to transform the data. 
+
+```{r}
+basicmod <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_enhanced)
+summary(basicmod)
+```
+From the model, we see that the p-value for 5 quantitative variables are all smaller than 0.05. But for some genre categories, the p-value is larger than 0.05, like Music and Mystery genre. Next, we plot the residual vs. fitted value plot to check the model assumptions. 
+
+```{r}
+summary(basicmod$fitted.values)
+```
+
+
+```{r}
+tmdb_enhanced %>% 
+  mutate(fitted.vals = basicmod$fitted.values, 
+         resids = basicmod$residuals) %>% 
+  ggplot(aes(x=fitted.vals, y=resids)) +
+  geom_jitter(width = 5) +
+  geom_hline(yintercept = 0, color="gray") +
+  geom_smooth(se = FALSE)
+```
