@@ -27,6 +27,8 @@ library(jsonlite,warn.conflicts = FALSE)
 library(curl,warn.conflicts = FALSE)
 ```
 
+### Part I: Introduction
+
 ```{r}
 tmdb <- read_csv("https://www.dropbox.com/s/sesaejgna9fkg1q/tmdb_5000.csv?dl=1")
 ```
@@ -118,17 +120,12 @@ tmdb_enhanced <-
 summary(tmdb_enhanced)
 ```
 
-```{r,message=FALSE}
-budget <- qplot(tmdb_enhanced$budget, geom="histogram")
-popularity <- qplot(tmdb_enhanced$popularity, geom="histogram")
-revenue <- qplot(tmdb_enhanced$revenue, geom="histogram")
-runtime <- qplot(tmdb_enhanced$runtime, geom="histogram")
-vote_average <- qplot(tmdb_enhanced$vote_average, geom="histogram")
-vote_count <- qplot(tmdb_enhanced$vote_count, geom="histogram")
- 
+First, we summarize the data and look for the question to answer. The whole dataset has 6 quantitative variables and 17 categorical variables, and among them, revenue is a good dependent variable because it is a good measure of successful movie. So, we want to build a best model to predict the revenue of a movie, based on the data we have. 
 
-grid.arrange(budget,popularity,revenue,runtime,vote_average,vote_count, ncol=3)
-```
+
+### Part II: Exploring Data
+
+In order to find some good categorical variables to use, we made tables for each of reasonable categorical variables. As the result, some of them are not suitbale to be include in the model. For example, the keyword variable has too many categories and each category has few observations. Because the table is too long, we don't show it below. For the similar reason, we decide not to use the charactors variable and production company variable. For the genres variable, there are two genres variables, which are shown below. We can see that genre1 variable is good to use because its observations are seperated into each vategories. However, genre2 variable has 928 NAs in it, which means it is not a good option for independent variable. The last categorical variable we explored is the country variable. As shown in Table 3, most of the movies are actually made in U.S., and many other countries only have 1 movie in its category, so, we decide to not use it in our model. Other categorical variables like website, title, overview etc. are not actually influencing the revenue made, so we just ignore them. 
 
 ```{r,echo = FALSE}
 library(knitr)
@@ -137,7 +134,7 @@ kable(
     group_by(genre1) %>% 
     count(),
   align = c("l", "c"),
-  caption = "Table 1: Distribution of genre"
+  caption = "Table 1: Distribution of genre1"
 )
 ```
 
@@ -148,7 +145,7 @@ kable(
     group_by(genre2) %>% 
     count(),
   align = c("l", "c"),
-  caption = "Table 1: Distribution of genre"
+  caption = "Table 2: Distribution of genre2"
 )
 ```
 
@@ -159,6 +156,45 @@ kable(
     group_by(country_main) %>% 
     count(),
   align = c("l", "c"),
-  caption = "Table 1: Distribution of genre"
+  caption = "Table 3: Distribution of countries of production"
 )
 ```
+
+
+Next, we analyzes the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count means there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make a better special effects in the movie and thus make it more attractive. And longer runtime means the movie has longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variabels are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable. 
+
+```{r,message=FALSE}
+budgetmod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$budget)
+budgetr <- tmdb_enhanced %>% 
+  ggplot(aes(x=budget, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = -2.630e+06, slope = 2.923e+00, size = 1)
+
+popularitymod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$popularity)
+popularityr <- tmdb_enhanced %>% 
+  ggplot(aes(x=popularity, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = 11334117, slope = 3300090, size = 1)
+
+
+votecountmod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$vote_count)
+votecountr <- tmdb_enhanced %>% 
+  ggplot(aes(x=vote_count, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = 11107575, slope = 103088, size = 1)
+
+voteaveragemod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$vote_average)
+voteaverager <- tmdb_enhanced %>% 
+  ggplot(aes(x=vote_average, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = -81476779, slope = 26876692, size = 1)
+
+runtimemod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$runtime)
+runtimer <- tmdb_enhanced %>% 
+  ggplot(aes(x=runtime, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = -111013532, slope = 1808719, size = 1)
+
+grid.arrange(budgetr,popularityr,runtimer,voteaverager,votecountr, ncol=3)
+```
+
