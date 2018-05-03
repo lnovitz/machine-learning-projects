@@ -5,7 +5,7 @@ date: "5/1/2018"
 output: html_document
 ---
 
-```{r, warning=FALSE}
+```{r, warning=FALSE, message=FALSE}
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -24,10 +24,32 @@ library(randomForest)
 library(knitr)
 ```
 
-```{r, warning=FALSE, message=FALSE}
+```{r}
 diabetes <- read_csv("https://www.dropbox.com/s/odtsp7foaugu694/diabetes_data_clean.csv?dl=1")
+```
+
+###Research Question
+It's a problem for hospitals if a patient is readmitted before 30 days, so my question is, what characteristics make a patient more likely to be readmitted before 30 days? How can hospital staff reduce this rate?
+
+First of all, let's see what the rate of readmission before 30 days is.
+
+```{r}
+kable(
+  diabetes %>% 
+    group_by(readmitted) %>% 
+    count(),
+  align = c("l", "c"),
+  caption = "Table 1: Readmission Categories"
+)
+```
+
+###Exploring Relationships
+
+
+```{r, warning=FALSE, message=FALSE}
 summary(diabetes)
 ```
+
 
 ```{r}
 diabetes %>% 
@@ -186,14 +208,11 @@ diabetes %>%
 ```
 I want to find out characteristics about patients who were readmitted before 30 days was up. 
 
+The density plot below may hint that patients who were sent home have slightly higher rates of readmittance before 30 days. 
 ```{r}
-kable(
-  diabetes %>% 
-    group_by(readmitted) %>% 
-    count(),
-  align = c("l", "c"),
-  caption = "Table 1: Readmission Categories"
-)
+diabetes %>% 
+  ggplot(aes(x=discharge_disposition, fill=factor(readmitted))) +
+  geom_density(alpha=.5)
 ```
 
 ```{r}
@@ -214,6 +233,15 @@ branch.lty=3,
 shadow.col="gray", 
 nn=TRUE
 )
+```
+
+```{r}
+earlyadmit2_tree <- rpart(readmitted ~ discharge_disposition,
+                 data=diabetes)
+```
+
+```{r}
+rpart.plot(earlyadmit2_tree)
 ```
 
 To be continued...nonparametric models!
