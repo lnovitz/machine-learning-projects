@@ -233,9 +233,18 @@ diabetes %>%
   ggplot(aes(x=discharge_disposition, fill=factor(readmitted))) +
   geom_density(alpha=.5)
 ```
+
+The boxplot below shows, perhaps, a slightly higher rate of readmission before 30 days is correlated with a higher number of inpatient visits in the year preceding the specific hospital this specific encounter. This intuitively makes sense.
+
 ```{r}
 diabetes %>% 
-  ggplot(aes(x=factor(readmitted), y=number_outpatient)) +
+  ggplot(aes(x=factor(readmitted), y=number_inpatient)) +
+  geom_boxplot()
+```
+The boxplot below does seem to show a difference between the amount of time spent in the hospital for those readmitted after the encounter and those not readmitted.
+```{r}
+diabetes %>% 
+  ggplot(aes(x=factor(readmitted), y=time_in_hospital)) +
   geom_boxplot()
 ```
 
