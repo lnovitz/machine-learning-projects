@@ -207,6 +207,9 @@ diabetes %>%
     group_by(readmitted) %>% 
     count()
 ```
+```{r}
+11357 + 35545
+```
 
 ```{r, echo=FALSE}
 diabetes %>% 
@@ -257,6 +260,7 @@ earlyadmit_tree <- rpart(readmitted ~ .,
 ```{r}
 rpart.plot(earlyadmit_tree, under=FALSE, varlen = 0, yesno = 2, ycompress = TRUE)
 ```
+
 Another tree to see if I can get better detail in the visuals
 ```{r}
 rpart.plot(earlyadmit_tree, # middle graph
@@ -280,6 +284,32 @@ rpart.plot(earlyadmit2_tree)
 
 ### Logistic Model
 
-# What assumptions do we need to confirm before fitting a logistic model?
+Before fitting a logistic model, I transformed the readmitted variable so it only has two levels. 
+
+Before the transformation, the readmitted variable contained 3 levels, revealing whether a patient was readmitted before 30 days, after 30 days, or not at all after the recorded encounter.
+
+```{r}
+diabetes %>% 
+    group_by(readmitted) %>% 
+    count()
+```
+
+After the transformation, the readmitted variable contains only 2 levels, revealing whether a patient was readmitted at all or not at all after the recorded encounter.
+```{r, echo=FALSE}
+library(forcats)
+
+#diabetes2 <-
+#diabetes$readmitted %>% fct_collapse(YES = c("<30",">30"))
+
+diabetes2 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(YES = c("<30",">30")))
+```
+
+```{r}
+diabetes2 %>% 
+    group_by(readmitted) %>% 
+    count()
+```
+
 
 What is a nonparametric model?
