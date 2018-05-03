@@ -60,6 +60,8 @@ kable(
 ```
 The rate of readmission before 30 days is about 11%. The rate of readmission after 30 days is about 35%. The rate of no readmission is about 54%.
 
+So our job is to find the features which make a hospital patient more likely to be readmitted before 30 days. 
+
 ###Exploring Relationships
 
 
@@ -68,157 +70,157 @@ summary(diabetes)
 ```
 
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(race) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(gender) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(age) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(time_in_hospital) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(num_lab_procedures) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(num_procedures) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(num_medications) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(number_outpatient) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(number_emergency) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(number_inpatient) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(number_diagnoses) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(max_glu_serum) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(A1Cresult) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(metformin) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(glimepiride) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(glipizide) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(glyburide) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(pioglitazone) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(rosiglitazone) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(insulin) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(change) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(diabetesMed) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(readmitted) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(admission_source) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(admission_type) %>% 
     count()
 ```
 
-```{r}
+```{r, echo=FALSE}
 diabetes %>% 
     group_by(discharge_disposition) %>% 
     count()
@@ -231,7 +233,13 @@ diabetes %>%
   ggplot(aes(x=discharge_disposition, fill=factor(readmitted))) +
   geom_density(alpha=.5)
 ```
+```{r}
+diabetes %>% 
+  ggplot(aes(x=factor(readmitted), y=number_outpatient)) +
+  geom_boxplot()
+```
 
+### Decision Tree Model
 ```{r}
 earlyadmit_tree <- rpart(readmitted ~ .,
                  data=diabetes)
@@ -261,4 +269,8 @@ earlyadmit2_tree <- rpart(readmitted ~ discharge_disposition,
 rpart.plot(earlyadmit2_tree)
 ```
 
-To be continued...nonparametric models!
+### Logistic Model
+
+# What assumptions do we need to confirm before fitting a logistic model?
+
+What is a nonparametric model?
