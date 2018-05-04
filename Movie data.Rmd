@@ -114,6 +114,11 @@ tmdb_enhanced <-
             by = "id") %>% 
   left_join(production_company, 
             by = "id")
+
+tmdb_mod <-
+  tmdb_enhanced %>%
+  select(revenue, budget, popularity, runtime, vote_average, vote_count, genre1) %>%
+  drop_na()
 ```
 
 ```{r}
@@ -204,7 +209,7 @@ We can see from those plots that budget variable and vote_count variable have go
 After exploring the data, we want to biuld up a model including all variables we found suitable to predict revenue, and check model assumptions to decide if we want to transform the data. 
 
 ```{r}
-basicmod <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_enhanced)
+basicmod <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_mod)
 summary(basicmod)
 ```
 From the model, we see that the p-value for 5 quantitative variables are all smaller than 0.05. But for some genre categories, the p-value is larger than 0.05, like Music and Mystery genre. Next, we plot the residual vs. fitted value plot to check the model assumptions. 
@@ -215,7 +220,7 @@ summary(basicmod$fitted.values)
 
 
 ```{r}
-tmdb_enhanced %>% 
+tmdb_mod %>% 
   mutate(fitted.vals = basicmod$fitted.values, 
          resids = basicmod$residuals) %>% 
   ggplot(aes(x=fitted.vals, y=resids)) +
