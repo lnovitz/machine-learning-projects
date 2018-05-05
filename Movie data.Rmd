@@ -115,10 +115,6 @@ tmdb_enhanced <-
   left_join(production_company, 
             by = "id")
 
-tmdb_mod <-
-  tmdb_enhanced %>%
-  select(revenue, budget, popularity, runtime, vote_average, vote_count, genre1) %>%
-  drop_na()
 ```
 
 ```{r}
@@ -165,40 +161,53 @@ kable(
 )
 ```
 
+Because we exclude all other categorical variables except the genre1, we made a new dataset that with no N/A in it.  
+
+```{r}
+tmdb_mod <-
+  tmdb_enhanced %>%
+  select(revenue, budget, popularity, runtime, vote_average, vote_count, genre1,genre2,country_main) %>%
+  drop_na()
+```
 
 Next, we analyzes the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count means there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make a better special effects in the movie and thus make it more attractive. And longer runtime means the movie has longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variabels are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable by establishing simple linear regressions. 
 
 ```{r,message=FALSE}
-budgetmod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$budget)
-budgetr <- tmdb_enhanced %>% 
+budgetmod <- lm(tmdb_mod$revenue ~ tmdb_mod$budget)
+budgetr <- tmdb_mod %>% 
   ggplot(aes(x=budget, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = -2.630e+06, slope = 2.923e+00, size = 1)
+  geom_abline(intercept = -4.201e+06, slope = 2.978e+00, size = 1)
 
-popularitymod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$popularity)
-popularityr <- tmdb_enhanced %>% 
+
+popularitymod <- lm(tmdb_mod$revenue ~ tmdb_mod$popularity)
+popularityr <- tmdb_mod %>% 
   ggplot(aes(x=popularity, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = 11334117, slope = 3300090, size = 1)
+  geom_abline(intercept = 16080789, slope = 3286249, size = 1)
 
 
-votecountmod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$vote_count)
-votecountr <- tmdb_enhanced %>% 
+
+votecountmod <- lm(tmdb_mod$revenue ~ tmdb_mod$vote_count)
+votecountr <- tmdb_mod %>% 
   ggplot(aes(x=vote_count, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = 11107575, slope = 103088, size = 1)
+  geom_abline(intercept = 12559961, slope = 103998, size = 1)
 
-voteaveragemod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$vote_average)
-voteaverager <- tmdb_enhanced %>% 
+
+voteaveragemod <- lm(tmdb_mod$revenue ~ tmdb_mod$vote_average)
+voteaverager <- tmdb_mod %>% 
   ggplot(aes(x=vote_average, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = -81476779, slope = 26876692, size = 1)
+  geom_abline(intercept = -135831453, slope = 37230135, size = 1)
 
-runtimemod <- lm(tmdb_enhanced$revenue ~ tmdb_enhanced$runtime)
-runtimer <- tmdb_enhanced %>% 
+
+runtimemod <- lm(tmdb_mod$revenue ~ tmdb_mod$runtime)
+runtimer <- tmdb_mod %>% 
   ggplot(aes(x=runtime, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = -111013532, slope = 1808719, size = 1)
+  geom_abline(intercept =  -141811217, slope = 2180476, size = 1)
+
 
 grid.arrange(budgetr,popularityr,runtimer,voteaverager,votecountr, ncol=3)
 ```
@@ -214,9 +223,6 @@ summary(basicmod)
 ```
 From the model, we see that the p-value for 5 quantitative variables are all smaller than 0.05. But for some genre categories, the p-value is larger than 0.05, like Music and Mystery genre. Next, we plot the residual vs. fitted value plot to check the model assumptions. 
 
-```{r}
-summary(basicmod$fitted.values)
-```
 
 
 ```{r}
@@ -227,4 +233,24 @@ tmdb_mod %>%
   geom_jitter(width = 5) +
   geom_hline(yintercept = 0, color="gray") +
   geom_smooth(se = FALSE)
+```
+
+We see that the residuals are clustered at left, and the mean error is increasing as fitted values increases. So, we try to use the log value of revenue. 
+
+```{r}
+logrevenue <- log(tmdb_mod$revenue)
+tmdb_mod$logrevenue <- logrevenue
+summary(tmdb_mod$logrevenue)
+```
+
+We see that because there are 0s in the revenue variable, the min value of logrevenue is -Infinite. So, we decide to delete all observations that has 0 revenue, because in reality, it is impossible to have 0 revenue and those observations will influence our model. 
+
+```{r}
+tmdb_mod1 <-
+  tmdb_mod %>% filter(budget!=0, revenue!=0)
+```
+
+```{r}
+basicmod1 <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_mod1)
+summary(basicmod)
 ```
