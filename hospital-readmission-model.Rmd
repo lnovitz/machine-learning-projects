@@ -300,6 +300,12 @@ diabetes2 <- diabetes %>%
   mutate(readmitted = readmitted %>% fct_collapse(YES = c("<30",">30")))
 ```
 
+```{r}
+diabetes2 %>% 
+    group_by(readmitted) %>% 
+  count()
+```
+
 We also decided to transform the readmitted variable in a different way that contains only 2 levels. Instead of collapsing readmissions into one level, I will treat readmissions after thirty days and no readmissions as one level, and readmissions before thirty days as the second level.
 ```{r, echo=FALSE}
 diabetes3 <- diabetes %>% 
@@ -307,18 +313,142 @@ diabetes3 <- diabetes %>%
 ```
 
 ```{r}
-diabetes2 %>% 
+diabetes3 %>% 
     group_by(readmitted) %>% 
     count()
 ```
 
+Now to build our logistic model, we will use the lasso method to control for how many variables we include in the model.
 ```{r}
 log.admit <- glm(readmitted ~ .,
                data=diabetes2, family = binomial(link = "logit"))
 ```
 
+First we divide the data into a training and validation set.
 ```{r}
-summary(log.admit)
+diabetes.trval2 <- diabetes2 %>% 
+  mutate(grp = sample(c("train", "validation"), 
+                      size=n(), 
+                      prob = c(.6,.4),
+                      replace=TRUE))
+train2 <- diabetes.trval2 %>% filter(grp=="train")
+validation2 <- diabetes.trval2 %>% filter(grp=="validation")
+
+diabetes.trval3 <- diabetes3 %>% 
+  mutate(grp = sample(c("train", "validation"), 
+                      size=n(), 
+                      prob = c(.6,.4),
+                      replace=TRUE))
+train3 <- diabetes.trval3 %>% filter(grp=="train")
+validation3 <- diabetes.trval3 %>% filter(grp=="validation")
 ```
 
-What is a nonparametric model?
+Then we use the lasso method to build our model.
+```{r}
+x <- model.matrix(readmitted ~., data=train2 %>% select(-grp))[,-1]
+y <- train2$readmitted
+
+training2$race <- factor(training2$race, levels = c("apple", "orange", "banana"))
+#indVar = c(var1, var2, var3)   
+#fit =  glmnet(x=data.matrix(train2[,indVar]) , y = train2[,depVar], and other parameters)
+#predictions = predict(fit, newx = data.matrix(test[,indVar]))
+
+set.seed(1)
+cv.lasso.mod <- cv.glmnet(x = x, y = y, alpha = 1, family="binomial")
+
+plot(cv.lasso.mod)
+```
+
+```{r}
+names(cv.lasso.mod)
+#cv.lasso.mod$lambda
+#cv.lasso.mod$cvm
+cv.lasso.mod$lambda.min #lambda with the smallest cv error
+cv.lasso.mod$lambda.1se #largest lambda such that the cv error is within 1 se
+                        # of the smallest cv error
+```
+
+There is a plotting function that looks at log($\lambda$) on the x-axis and CV MSE on the y-axis. Because I love ggplot graphics so much, I changed this to a ggplot below.
+
+```{r}
+plot(cv.lasso.mod)
+```
+
+I put all these values into a dataset to create a "prettier" graph. 
+First, make the dataset:
+```{r}
+lasso.stats <- tibble(lambda = cv.lasso.mod$lambda,
+                      cverror = cv.lasso.mod$cvm,
+                      upper = cv.lasso.mod$cvup,
+                      lower = cv.lasso.mod$cvlo) 
+```
+
+
+First attempt:
+```{r}
+lasso.stats %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_point(color="red") +
+  geom_errorbar(aes(ymin=lower, ymax=upper)) +
+  xlim(0, 0.002) 
+```
+
+Hmmm, I think I also like lambda on the log scale:
+
+```{r}
+bestlam.cvup <- cv.lasso.mod$cvup[cv.lasso.mod$lambda==cv.lasso.mod$lambda.min]
+
+lasso.stats %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_vline(xintercept = cv.lasso.mod$lambda.min, color="blue", alpha=.5) +
+  geom_hline(yintercept = bestlam.cvup, color="blue", alpha=.5) +
+  geom_vline(xintercept = cv.lasso.mod$lambda.1se, color="orange", alpha=.5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper),color="darkgray") +
+  geom_point(color="red") +
+  scale_x_log10() +
+  theme_minimal() +
+  xlim(0, 0.002) 
+```
+
+THIS GRAPH WILL HELP YOU SEE MORE CLEARLY THE VALUES OF LAMBDA. I have rounded the values.
+
+```{r}
+lasso.stats %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_vline(xintercept = cv.lasso.mod$lambda.min, color="blue", alpha=.5) +
+  geom_hline(yintercept = bestlam.cvup, color="blue", alpha=.5) +
+  geom_vline(xintercept = cv.lasso.mod$lambda.1se, color="orange", alpha=.5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper),color="darkgray") +
+  geom_point(color="red") +
+  geom_text(aes(label = round(lambda,0)), size=3, nudge_y = 5000, angle=45) +
+  scale_x_log10() +
+  theme_minimal()
+```
+
+How do I see the models that were fit? We can use the *predict* function and tell it we want the coefficients as output and give it new values of *lambda*. Below, we look at the models for the value of $\lambda$ with the smallest cv error and the largest value of $\lambda$ with cv error within one se of the smallest cv error, and $\lambda= 25$, which is between the two. NOTE: I HAD A MISTAKE IN THIS PIECE OF CODE!!! I originally had *lasso.mod.hitters* and it should be *cv.lasso.mod*.
+
+```{r}
+predict(cv.lasso.mod, 
+        type="coefficients", 
+        s = c(cv.lasso.mod$lambda.min, cv.lasso.mod$lambda.1se, 0.01))
+```
+
+
+**QUESTIONS**
+
+* How would you go about using this method to build a model?
+* What if you want to compare this method with another method, like forward selection?
+
+
+
+
+```{r}
+predict(cv.lasso.mod, type="coefficients", 
+        s=c(cv.lasso.mod$lambda.1se))
+```
+```{r, eval=FALSE}
+predict(cv.lasso.mod,
+        newx = model.matrix(readmitted ~., data=validation2 %>% select(-grp))[,-1],
+        type="response", 
+        s=c(cv.lasso.mod$lambda.1se))
+```
