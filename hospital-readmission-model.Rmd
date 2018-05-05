@@ -16,7 +16,7 @@ library(GGally)
 library(leaps) 
 library(glmnet)
 library(faraway)
-library(forcats)
+library(forcats) #to collapse categorical levels
 library(ISLR)
 library(rpart)
 library(rpart.plot)
@@ -296,13 +296,14 @@ diabetes %>%
 
 After the transformation, the readmitted variable contains only 2 levels, revealing whether a patient was readmitted at all or not at all after the recorded encounter.
 ```{r, echo=FALSE}
-library(forcats)
-
-#diabetes2 <-
-#diabetes$readmitted %>% fct_collapse(YES = c("<30",">30"))
-
 diabetes2 <- diabetes %>% 
   mutate(readmitted = readmitted %>% fct_collapse(YES = c("<30",">30")))
+```
+
+We also decided to transform the readmitted variable in a different way that contains only 2 levels. Instead of collapsing readmissions into one level, I will treat readmissions after thirty days and no readmissions as one level, and readmissions before thirty days as the second level.
+```{r, echo=FALSE}
+diabetes3 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(NO = c("NO",">30")))
 ```
 
 ```{r}
@@ -311,5 +312,13 @@ diabetes2 %>%
     count()
 ```
 
+```{r}
+log.admit <- glm(readmitted ~ .,
+               data=diabetes2, family = binomial(link = "logit"))
+```
+
+```{r}
+summary(log.admit)
+```
 
 What is a nonparametric model?
