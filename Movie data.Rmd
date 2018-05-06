@@ -121,7 +121,7 @@ tmdb_enhanced <-
 summary(tmdb_enhanced)
 ```
 
-First, we summarize the data and look for the question to answer. The whole dataset has 6 quantitative variables and 17 categorical variables, and among them, revenue is a good dependent variable because it is a good measure of successful movie. So, we want to build a best model to predict the revenue of a movie, based on the data we have. 
+First, we summarize the data and look for the question to answer. The whole dataset has 6 quantitative variables and 17 categorical variables, and among them, revenue is a good dependent variable because it is a good measure of successful movie. So, we want to build a best model to predict the revenue of a movie, based on the data we have. And then, we want to find one most important explainatory variable which can best explain the revenue of a movie. 
 
 
 ### Part II: Exploring Data
@@ -161,52 +161,57 @@ kable(
 )
 ```
 
-Because we exclude all other categorical variables except the genre1, we made a new dataset that with no N/A in it.  
+Because we exclude all other categorical variables except the genre1, we made a new dataset that with no N/A in it.  And we observed that there are many 0s in the revenue and budget variable, which is not realistic. So, we remove all observations that have 0 revenue or budget. 
 
 ```{r}
 tmdb_mod <-
   tmdb_enhanced %>%
   select(revenue, budget, popularity, runtime, vote_average, vote_count, genre1,genre2,country_main) %>%
   drop_na()
+
+tmdb_mod1 <-
+  tmdb_mod %>% filter(budget!=0, revenue!=0)
+
 ```
 
 Next, we analyzes the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count means there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make a better special effects in the movie and thus make it more attractive. And longer runtime means the movie has longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variabels are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable by establishing simple linear regressions. 
 
 ```{r,message=FALSE}
-budgetmod <- lm(tmdb_mod$revenue ~ tmdb_mod$budget)
+budgetmod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$budget)
 budgetr <- tmdb_mod %>% 
   ggplot(aes(x=budget, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = -4.201e+06, slope = 2.978e+00, size = 1)
+  geom_abline(intercept =  -8.045e+05, slope = 3.015e+00, size = 1)
 
 
-popularitymod <- lm(tmdb_mod$revenue ~ tmdb_mod$popularity)
+
+popularitymod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$popularity)
 popularityr <- tmdb_mod %>% 
   ggplot(aes(x=popularity, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = 16080789, slope = 3286249, size = 1)
+  geom_abline(intercept = 37116443, slope = 3087125, size = 1)
 
 
 
-votecountmod <- lm(tmdb_mod$revenue ~ tmdb_mod$vote_count)
+votecountmod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$vote_count)
 votecountr <- tmdb_mod %>% 
   ggplot(aes(x=vote_count, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = 12559961, slope = 103998, size = 1)
+  geom_abline(intercept = 25183820, slope = 100742, size = 1)
 
 
-voteaveragemod <- lm(tmdb_mod$revenue ~ tmdb_mod$vote_average)
+voteaveragemod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$vote_average)
 voteaverager <- tmdb_mod %>% 
   ggplot(aes(x=vote_average, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept = -135831453, slope = 37230135, size = 1)
+  geom_abline(intercept = -159639659, slope = 46095474, size = 1)
 
 
-runtimemod <- lm(tmdb_mod$revenue ~ tmdb_mod$runtime)
+runtimemod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$runtime)
 runtimer <- tmdb_mod %>% 
   ggplot(aes(x=runtime, y=revenue)) +
   geom_point(color="red") +
-  geom_abline(intercept =  -141811217, slope = 2180476, size = 1)
+  geom_abline(intercept =  -117198218, slope = 2241274, size = 1)
 
 
 grid.arrange(budgetr,popularityr,runtimer,voteaverager,votecountr, ncol=3)
@@ -218,39 +223,155 @@ We can see from those plots that budget variable and vote_count variable have go
 After exploring the data, we want to biuld up a model including all variables we found suitable to predict revenue, and check model assumptions to decide if we want to transform the data. 
 
 ```{r}
-basicmod <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_mod)
+basicmod <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_mod1)
 summary(basicmod)
 ```
-From the model, we see that the p-value for 5 quantitative variables are all smaller than 0.05. But for some genre categories, the p-value is larger than 0.05, like Music and Mystery genre. Next, we plot the residual vs. fitted value plot to check the model assumptions. 
-
-
+From the model, we see that the p-value of budget, popularity, runtime, and vote_count are all significant, but vote_average is not significant. And for the categorical variable, some of them are significant while others are not. So, we decide to exclude vote_average. And then, we plot the residual vs. fitted value, histogram and qq plots to check the model assumtion. 
 
 ```{r}
-tmdb_mod %>% 
-  mutate(fitted.vals = basicmod$fitted.values, 
-         resids = basicmod$residuals) %>% 
+tmdb_mod1 <-
+  tmdb_mod1 %>%
+  select(revenue, budget, popularity, runtime, vote_count, genre1) 
+```
+
+```{r}
+basicmod1 <- lm(revenue ~ budget + popularity + runtime + vote_count + genre1,data = tmdb_mod1)
+
+rvf <-
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod1$fitted.values, 
+         resids = basicmod1$residuals) %>% 
   ggplot(aes(x=fitted.vals, y=resids)) +
   geom_jitter(width = 5) +
   geom_hline(yintercept = 0, color="gray") +
   geom_smooth(se = FALSE)
+
+
+hist <- 
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod1$fitted.values, 
+         resids = basicmod1$residuals) %>% 
+  ggplot(aes(x=resids)) +
+  geom_histogram()
+
+
+qq <-
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod1$fitted.values, 
+         resids = basicmod1$residuals) %>% 
+  ggplot(aes(sample=resids)) +
+  geom_qq() 
+
+grid.arrange(rvf,hist,qq, ncol=2)
 ```
 
-We see that the residuals are clustered at left, and the mean error is increasing as fitted values increases. So, we try to use the log value of revenue. 
+We see that the residuals are clustered at left, and the mean error is increasing as fitted values increases. The histogram of the residuals shows a roughly normal distribution but the qq plot shows a departure of 45 degrees line. So, we try to use the log value of revenue. 
 
 ```{r}
-logrevenue <- log(tmdb_mod$revenue)
-tmdb_mod$logrevenue <- logrevenue
-summary(tmdb_mod$logrevenue)
+logrevenue <- log(tmdb_mod1$revenue)
+tmdb_mod1$logrevenue <- logrevenue
 ```
 
-We see that because there are 0s in the revenue variable, the min value of logrevenue is -Infinite. So, we decide to delete all observations that has 0 revenue, because in reality, it is impossible to have 0 revenue and those observations will influence our model. 
-
-```{r}
-tmdb_mod1 <-
-  tmdb_mod %>% filter(budget!=0, revenue!=0)
-```
+Afterward, we rebiuld the model and check the model assumption again. 
 
 ```{r}
-basicmod1 <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_mod1)
-summary(basicmod)
+basicmod2 <- lm(logrevenue~budget + popularity + runtime + vote_count + genre1,data = tmdb_mod1)
+
+rvf1<-
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod2$fitted.values, 
+         resids = basicmod2$residuals) %>% 
+  ggplot(aes(x=fitted.vals, y=resids)) +
+  geom_jitter(width = 5) +
+  geom_hline(yintercept = 0, color="gray") +
+  geom_smooth(se = FALSE)
+
+
+hist1<- 
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod2$fitted.values, 
+         resids = basicmod2$residuals) %>% 
+  ggplot(aes(x=resids)) +
+  geom_histogram()
+
+
+qq1<- 
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod2$fitted.values, 
+         resids = basicmod2$residuals) %>% 
+  ggplot(aes(sample=resids)) +
+  geom_qq() 
+
+grid.arrange(rvf1,hist1,qq1, ncol=2)
 ```
+
+We see that after taking the log revenue,the constance variance and mean error is departing from 0, and the histogram shows that the residual skews to left. The qq plot even departs more from the 45 degree line than non-logged revenue model. So, we decide to use the original revenue as the dependent variable. 
+
+
+
+### Part IV: Choose the best model using forward selection. 
+
+In order to get the best model that interpret the revenue, we use forward selection on the variables. 
+
+```{r, echo = FALSE}
+set.seed(10)
+
+
+tmdb.tr.test <- 
+  tmdb_mod1 %>% 
+  mutate(grp = sample(c("tr", "test"), size=n(), replace = TRUE, prob = c(.8,.2)))  
+  
+  
+tmdb.train <- tmdb.tr.test %>% 
+  filter(grp == "tr") %>% 
+  select(-grp)
+
+tmdb.test <- tmdb.tr.test %>% 
+  filter(grp == "test") %>% 
+  select(-grp)
+```
+
+```{r,echo = FALSE}
+bestmodels <- regsubsets(x = revenue ~ ., 
+                   data = tmdb.train,
+                   nvmax = 22,         
+                   method = "forward")
+
+summary(bestmodels)
+```
+
+Next, we calculate the cv errors of different models in order to find a best model. We are limiting the most number of variables to 10, because more than 10 variables makes the model too complicated. 
+
+```{r,echo = FALSE}
+predict.regsubsets <- function(object, newdata, id, ...){
+  form <- as.formula(object$call[[2]])
+  coefi <- coef(object, id=id)
+  model.matrix(form, data=newdata)[,names(coefi)] %*% coefi
+}
+```
+
+```{r}
+MSPEs = list()
+for (i in 1:10){
+  prei <- predict.regsubsets(object = bestmodels, 
+                   newdata = tmdb.test,
+                   id = i)
+  MSPEs[i] <- mean((tmdb.test$revenue - prei)^2)
+}
+MSPEs
+```
+As the result, 10 variables model has the lowest cv error. So, our model to predict the movie revenue is 
+$$
+Revenue = B_0+B_1*budget+B_2*popularity+B_3*runtime+B_4*votecount+B_5*genre1Advaenture+B_6*genre1Animation+B_7*genre1Comedy+B_8*genre1Family+B_9*genre1Horror + B_10*genre1Romance
+$$
+
+And the coefficients are
+
+```{r}
+coef(bestmodels, id=10)
+```
+
+
+Through this model, we can conclude that a increase in  budget, popularity, runtime and vote_count will increase the predicted revenue of a movie. And if the category of the movie is Animation or Family, it tends to increases the revenue of the movie dramatically, while the Adventure, Comedy, Horror and Romance categories also increases the predicted revenue of a movie. 
+
+### Part V: Choose the best explainatory varible. 
