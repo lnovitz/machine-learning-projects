@@ -396,19 +396,23 @@ mod2.min<- predict(cv.lasso.mod2,
 mod2.few<- predict(cv.lasso.mod2, 
         type="coefficients", s=c(0.0075))
 ```
-```{r}
-pred_prob <- predict(cv.lasso.mod2, newx = newX, type = "response")
-pred_class <- as.numeric(pred_prob > 0.75)
-table(diabetes3$readmitted, pred_class)
-error = (10452 + 1891)/(905 + 10452 + 1891 + 88518)
-error
-```
+
 Below we define the model with different lambda values so we can later compare the test error rates.
 ```{r}
-cv.lasso.mod <- cv.glmnet(x = x2, y = y2, alpha = 1,  family="binomial", lambda = )
-cv.lasso.mod2 <- cv.glmnet(x = x3, y = y3, alpha = 1, family="binomial", lambda = )
+cv.lasso.mod.1 <- cv.glmnet(x = x2, y = y2, alpha = 1,  family="binomial", lambda = )
+cv.lasso.mod.2<- cv.glmnet(x = x3, y = y3, alpha = 1, family="binomial", lambda = )
 ```
 
+Model 1
+```{r}
+newX <- model.matrix(factor(readmitted) ~., data = validation[-c(27)])[,-1] #diabetes3
+pred = predict(cv.lasso.mod,newx = newX, type = "response")
+pred_class <- as.numeric(pred > 0.5)
+table(validation$readmitted, pred_class)
+error = (10375 + 4607)/(8302 + 10375 + 4607 + 17336)
+error
+```
+Model 2
 ```{r}
 newX <- model.matrix(factor(readmitted) ~., data = validation2[-c(27)])[,-1] #diabetes3
 pred = predict(cv.lasso.mod2,newx = newX, type = "response")
