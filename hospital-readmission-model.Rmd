@@ -251,37 +251,6 @@ diabetes %>%
   geom_boxplot()
 ```
 
-### Decision Tree Model
-```{r}
-earlyadmit_tree <- rpart(readmitted ~ .,
-                 data=diabetes)
-```
-
-```{r}
-rpart.plot(earlyadmit_tree, under=FALSE, varlen = 0, yesno = 2, ycompress = TRUE)
-```
-
-Another tree to see if I can get better detail in the visuals
-```{r}
-rpart.plot(earlyadmit_tree, # middle graph
-type=4,
-extra=101, 
-box.palette="GnBu",
-branch.lty=3, 
-shadow.col="gray", 
-nn=TRUE
-)
-```
-
-```{r}
-earlyadmit2_tree <- rpart(readmitted ~ discharge_disposition,
-                 data=diabetes)
-```
-
-```{r}
-rpart.plot(earlyadmit2_tree)
-```
-
 ### Logistic Model
 
 Using this logistic model, we are confined to a binary response variable, so we have to combine levels within readmitted to build a proper model. 
@@ -320,13 +289,7 @@ diabetes3 %>%
     count()
 ```
 
-Now to build our logistic model, we will use the lasso method to control for how many variables we include in the model.
-```{r}
-log.admit <- glm(readmitted ~ .,
-               data=diabetes2, family = binomial(link = "logit"))
-```
-
-First we divide the data into a training and validation set.
+Now to build our logistic model, we will use the lasso method to control for how many variables we include in the model. First we divide the data into a training and validation set.
 ```{r}
 diabetes.trval2 <- diabetes2 %>% 
   mutate(grp = sample(c("train", "validation"), 
@@ -352,11 +315,6 @@ y2 <- train2$readmitted
 
 x3 <- model.matrix(readmitted ~., data=train3 %>% select(-grp))[,-1]
 y3 <- train3$readmitted
-
-#training2$race <- factor(training2$race, levels = c("apple", "orange", "banana"))
-#indVar = c(var1, var2, var3)   
-#fit =  glmnet(x=data.matrix(train2[,indVar]) , y = train2[,depVar], and other parameters)
-#predictions = predict(fit, newx = data.matrix(test[,indVar]))
 
 set.seed(1)
 cv.lasso.mod <- cv.glmnet(x = x2, y = y2, alpha = 1, family="binomial")
@@ -489,9 +447,3 @@ predict(cv.lasso.mod2, type="coefficients",
         s=c(cv.lasso.mod2$lambda.1se))
 ```
 
-```{r, eval=FALSE}
-predict(cv.lasso.mod,
-        newx = model.matrix(readmitted ~., data=validation2 %>% select(-grp))[,-1],
-        type="response", 
-        s=c(cv.lasso.mod$lambda.1se))
-```
