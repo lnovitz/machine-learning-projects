@@ -1,6 +1,6 @@
 ---
 title: "Final Takehome Movie Data"
-author: "Xinwei Huang"
+author: "Xinwei Huang Lianna Novitz"
 date: "2018 0501"
 output: html_document
 ---
@@ -29,13 +29,13 @@ library(curl,warn.conflicts = FALSE)
 
 ### Part I: Introduction
 
-This dataset includes around 5000 movies and their relative variables. Our group analyzes the variables in it and biuld up two models to explain what factors would influence the revenue of a movie using forward selection and LASSO methods. 
+This dataset includes around 5000 movies and their relative variables. Our group analyzes the variables in it and build up two models to explain what factors would influence the revenue of a movie using forward selection and LASSO methods. 
 
-```{r,echo = FALSE}
+```{r,echo = FALSE,message=FALSE}
 tmdb <- read_csv("https://www.dropbox.com/s/sesaejgna9fkg1q/tmdb_5000.csv?dl=1")
 ```
 
-```{r,echo = FALSE}
+```{r,echo = FALSE,message=FALSE}
 #Returns the first two characters listed in the credits in their own columns. 
 #There is a unique row for each movie ID with at least one character.
 
@@ -127,9 +127,9 @@ tmdb_enhanced <-
 summary(tmdb_enhanced)
 ```
 
-First, we summarize the data and look for the question to answer. The whole dataset has 6 quantitative variables and 17 categorical variables, and among them, revenue is a good dependent variable because it is a good measure of successful movie. So, we want to build a best model to predict the revenue of a movie, based on the data we have. And then, we want to find one most important explainatory variable which can best explain the revenue of a movie. 
+First, we summarize the data and look for the question to answer. The whole dataset has 6 quantitative variables and 17 categorical variables, and among them, revenue is a good dependent variable because it is a good measure of a successful movie. So, we want to build the best model to predict the revenue of a movie, based on the data we have. And then, we want to find one most important explanatory variable which can best explain the revenue of a movie. 
 
-In order to find some good categorical variables to use, we made tables for each of reasonable categorical variables. As the result, some of them are not suitbale to be include in the model. For example, the keyword variable has too many categories and each category has few observations. Because the table is too long, we don't show it below. For the similar reason, we decide not to use the charactors variable and production company variable. For the genres variable, there are two genres variables, which are shown below. We can see that genre1 variable is good to use because its observations are seperated into each vategories. However, genre2 variable has 928 NAs in it, which means it is not a good option for independent variable. The last categorical variable we explored is the country variable. As shown in Table 3, most of the movies are actually made in U.S., and many other countries only have 1 movie in its category, so, we decide to not use it in our model. Other categorical variables like website, title, overview etc. are not actually influencing the revenue made, so we just ignore them. 
+In order to find some good categorical variables to use, we made tables for each of reasonable categorical variables. As the result, some of them are not suitable to be included in the model. For example, the keyword variable has too many categories and each category has few observations. Because the table is too long, we don't show it below. For the similar reason, we decide not to use the characters variable and production company variable. For the genres variable, there are two genres variables, which are shown below. We can see that genre1 variable is good to use because its observations are separated into each category. However, genre2 variable has 928 NAs in it, which means it is not a good option for the independent variable. The last categorical variable we explored is the country variable. As shown in Table 3, most of the movies are actually made in the U.S., and many other countries only have 1 movie in its category, so, we decide to not use it in our model. Other categorical variables like website, title, overview etc. are not actually influencing the revenue made, so we just ignore them. 
 
 ```{r,echo = FALSE}
 library(knitr)
@@ -177,7 +177,7 @@ tmdb_mod1 <-
 
 ```
 
-Next, we analyzes the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count means there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make a better special effects in the movie and thus make it more attractive. And longer runtime means the movie has longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variabels are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable by establishing simple linear regressions. 
+Next, we analyze the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count mean there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make better special effects in the movie and thus make it more attractive. And longer runtime means the movie has the longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variables are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable by establishing simple linear regressions. 
 
 ```{r,message=FALSE,echo = FALSE}
 budgetmod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$budget)
@@ -220,16 +220,16 @@ runtimer <- tmdb_mod %>%
 grid.arrange(budgetr,popularityr,runtimer,voteaverager,votecountr, ncol=3)
 ```
 
-We can see from those plots that budget variable and vote_count variable have good linear relationship with revenue. The rest three variables don't have obvious linear relationship with revenue, but the simple model regressions shows that they are statistically significant in interpreting the revenue. So, we are going to use all of those 5 variables as independent variables. 
+We can see from those plots that budget variable and vote_count variable have a good linear relationship with revenue. The rest three variables don't have an obvious linear relationship with revenue, but the simple model regressions show that they are statistically significant in interpreting the revenue. So, we are going to use all of those 5 variables as independent variables. 
 
 ### Part III: Checking Model Assumptions
-After exploring the data, we want to biuld up a model including all variables we found suitable to predict revenue, and check model assumptions to decide if we want to transform the data. 
+After exploring the data, we want to build up a model including all variables we found suitable to predict revenue and check model assumptions to decide if we want to transform the data. 
 
 ```{r,echo = FALSE}
 basicmod <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_mod1)
 summary(basicmod)
 ```
-From the model, we see that the p-value of budget, popularity, runtime, and vote_count are all significant, but vote_average is not significant. And for the categorical variable, some of them are significant while others are not. So, we decide to exclude vote_average. And then, we plot the residual vs. fitted value, histogram and qq plots to check the model assumtion. 
+From the model, we see that the p-value of budget, popularity, runtime, and vote_count are all significant, but vote_average is not significant. And for the categorical variable, some of them are significant while others are not. So, we decide to exclude vote_average. And then, we plot the residual vs. fitted value, histogram and qq plots to check the model assumptions. 
 
 ```{r,echo = FALSE}
 tmdb_mod1 <-
@@ -268,7 +268,7 @@ qq <-
 grid.arrange(rvf,hist,qq, ncol=2)
 ```
 
-We see that the residuals are clustered at left, and the mean error is increasing as fitted values increases. The histogram of the residuals shows a roughly normal distribution but the qq plot shows a departure of 45 degrees line. So, we try to use the log value of revenue. Afterward, we rebiuld the model and check the model assumption again. 
+We see that the residuals are clustered at left, and the mean error is increasing as fitted values increases. The histogram of the residuals shows a roughly normal distribution but the qq plot shows a departure of 45 degrees line. So, we try to use the log value of revenue. Afterward, we rebuild the model and check the model assumption again. 
 
 ```{r,echo = FALSE}
 logrevenue <- log(tmdb_mod1$revenue)
@@ -307,13 +307,13 @@ qq1<-
 grid.arrange(rvf1,hist1,qq1, ncol=2)
 ```
 
-We see that after taking the log revenue,the constance variance and mean error is departing from 0, and the histogram shows that the residual skews to left. The qq plot even departs more from the 45 degree line than non-logged revenue model. So, we decide to use the original revenue as the dependent variable. 
+We see that after taking the log revenue, the constant variance and mean error is departing from 0, and the histogram shows that the residual skews to left. The qq plot even departs more from the 45-degree line than non-logged revenue model. So, we decide to use the original revenue as the dependent variable. 
 
 
 
 ### Part IV: Choose the best model using forward selection. 
 
-In order to get the best model that interpret the revenue, we use forward selection on the variables. 
+In order to get the best model that interpret the revenue, we use the forward selection of the variables. 
 
 ```{r, echo = FALSE}
 set.seed(10)
@@ -342,7 +342,7 @@ bestmodels <- regsubsets(x = revenue ~ .,
 summary(bestmodels)
 ```
 
-Next, we calculate the cv errors of different models in order to find a best model. We are limiting the most number of variables to 10, because more than 10 variables makes the model too complicated. 
+Next, we calculate the cv errors of different models in order to find the best model. We are limiting the most number of variables to 10 because more than 10 variables make the model too complicated. 
 
 ```{r,echo = FALSE}
 predict.regsubsets <- function(object, newdata, id, ...){
@@ -362,6 +362,7 @@ for (i in 1:10){
 }
 MSPEs
 ```
+
 As the result, 10 variables model has the lowest cv error. So, our model to predict the movie revenue is 
 $$
 Revenue = B_0+B_1*budget+B_2*popularity+B_3*runtime+B_4*votecount+B_5*genre1Advaenture+B_6*genre1Animation+B_7*genre1Comedy+B_8*genre1Family+B_9*genre1Horror + B_10*genre1Romance
@@ -374,12 +375,12 @@ coef(bestmodels, id=10)
 ```
 
 
-Through this model, we can conclude that a increase in  budget, popularity, runtime and vote_count will increase the predicted revenue of a movie. And if the category of the movie is Animation or Family, it tends to increases the revenue of the movie dramatically, while the Adventure, Comedy, Horror and Romance categories also increases the predicted revenue of a movie. 
+Through this model, we can conclude that an increase in budget, popularity, runtime, and vote_count will increase the predicted revenue of a movie. And if the category of the movie is Animation or Family, it tends to increases the revenue of the movie dramatically, while the Adventure, Comedy, Horror and Romance categories also increase the predicted revenue of a movie. 
 
 ### Part V: Choose three best explainatory varibles. 
 
-In this section, we want to find out three variables with the largest interpretability. We want to see which variables decide the predicted renenue of a movie most. 
-We use LASSO method to decreases the number of variable until three left to find this variable. 
+In this section, we want to find out three variables with the largest interpretability. We want to see which variables decide the predicted revenue of a movie most. 
+We use LASSO method to decreases the number of variables until three left to find this variable. 
 
 ```{r, echo = FALSE}
 tmdb.train2 <- tmdb.train %>% 
@@ -430,7 +431,7 @@ predict(cv.tmdb.mod,
 
 ```
 
-We tried 4 different lambda values, which are the lambda that minimize the cv error, $1*10^7$,$(1.95)*10^7$, and the lambda that 1 standard error from the min lambda. As the result, when lambda = $(1.95)*10^7$, we have three variables left. The left variables are budget, popularity and vote_count. This means that the genre of a movie and other variables do not influence the predicted revenue of a movie as much as its budget, popularity and number of votes. Therefore, a movie with a high budget tends to have high revenue. And the movie with high popularity and thus more votes in websides tend to have higher revenue. The final model we got is:
+We tried 4 different lambda values, which are the lambda that minimizes the cv error, $1*10^7$,$(1.95)*10^7$, and the lambda that 1 standard error from the min lambda. As the result, when lambda = $(1.95)*10^7$, we have three variables left. The left variables are budget, popularity, and vote_count. This means that the genre of a movie and other variables do not influence the predicted revenue of a movie as much as its budget, popularity, and number of votes. Therefore, a movie with a high budget tends to have high revenue. And the movie with high popularity and thus more votes in websites tend to have higher revenue. The final model we got is:
 
 $$
 Revenue = B_0+B_1*budget+B_2*popularity+B_3*vote_count
@@ -439,3 +440,108 @@ $$
 ### Part VI: Conclusion
 
 In conclusion, using the forward selection, our group find that the best model is $ Revenue = B_0+B_1*budget+B_2*popularity+B_3*runtime+B_4*votecount+B_5*genre1Advaenture+B_6*genre1Animation+B_7*genre1Comedy+B_8*genre1Family+B_9*genre1Horror + B_10*genre1Romance$. The adding of each of those variables will decrease the error of the prediction. Afterward, we use LASSO method to find 3 variables with the largest interpretability for the revenue. As the result, the model we got is $Revenue = B_0+B_1*budget+B_2*popularity+B_3*vote_count$. It turns out that the budget, the popularity and how many people vote for the movie online mostly influence the predicted revenue of a movie. 
+
+### Part VII: Appendix
+
+```{r,eval=FALSE}
+#Returns the first two characters listed in the credits in their own columns. 
+#There is a unique row for each movie ID with at least one character.
+
+chars <-
+  tmdb %>% 
+  select(id, cast) %>% 
+  filter(nchar(cast)>2) %>% 
+  mutate(js=map(cast,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(char1 = first(character),
+            char2 = nth(character, n=2))
+
+#Returns the first two genres reported in their own columns. 
+#There is a unique row for each movie ID with at least one genre.
+
+genres <-
+  tmdb %>% 
+  select(id, genres) %>% 
+  filter(nchar(genres)>2) %>% 
+  mutate(js = map(genres,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(genre1 = first(name),
+            genre2 = nth(name, n=2))
+
+#Returns the first two key words reported in their own columns. 
+#There is a unique row for each movie ID with at least one keyword.
+
+keywords <-
+  tmdb %>% 
+  select(id, keywords) %>% 
+  filter(nchar(keywords)>2) %>% 
+  mutate(js = map(keywords,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(keyword1 = first(name),
+            keyword2 = nth(name, n=2))
+
+
+#Returns the first production company. 
+#There is a unique row for each movie ID with at least one production company
+
+production_company <-
+  tmdb %>% 
+  select(id, production_companies) %>% 
+  filter(nchar(production_companies)>2) %>% 
+  mutate(js = map(production_companies,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(prod_comp_main = first(name))
+
+#Returns the first production country. 
+#There is a unique row for each movie ID with at least one production country
+
+production_country <-
+  tmdb %>% 
+  select(id, production_countries) %>% 
+  filter(nchar(production_countries)>2) %>% 
+  mutate(js = map(production_countries,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(country_main = first(iso_3166_1))
+
+#Combine the tables created above with the original data and drops some of the columns.
+
+tmdb_enhanced <-
+  tmdb %>% 
+  select(-genres, -keywords, -production_companies, -production_countries,
+         -spoken_languages, -cast, -crew) %>% 
+  left_join(chars, 
+            by = "id") %>% 
+  left_join(genres, 
+            by = "id") %>% 
+  left_join(keywords, 
+            by = "id") %>% 
+  left_join(production_country,
+            by = "id") %>% 
+  left_join(production_company, 
+            by = "id")
+
+```
+
+```{r,eval = FALSE}
+# make a new dataset that only contains variables we want
+tmdb_mod <-
+  tmdb_enhanced %>%
+  select(revenue, budget, popularity, runtime, vote_average, vote_count, genre1,genre2,country_main) %>%
+  drop_na()
+
+tmdb_mod1 <-
+  tmdb_mod %>% filter(budget!=0, revenue!=0)
+
+```
+
+```{r,eval = FALSE}
+# delete the variables we found that are not suitable. 
+tmdb_mod1 <-
+  tmdb_mod1 %>%
+  select(revenue, budget, popularity, runtime, vote_count, genre1) 
+```
