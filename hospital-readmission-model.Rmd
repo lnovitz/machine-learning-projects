@@ -284,7 +284,9 @@ rpart.plot(earlyadmit2_tree)
 
 ### Logistic Model
 
-Before fitting a logistic model, I transformed the readmitted variable so it only has two levels. 
+Using this logistic model, we are confined to a binary response variable, so we have to combine levels within readmitted to build a proper model. 
+
+We transformed the readmitted variable so it only has two levels. 
 
 Before the transformation, the readmitted variable contained 3 levels, revealing whether a patient was readmitted before 30 days, after 30 days, or not at all after the recorded encounter.
 
@@ -345,24 +347,29 @@ validation3 <- diabetes.trval3 %>% filter(grp=="validation")
 
 Then we use the lasso method to build our model.
 ```{r}
-x <- model.matrix(readmitted ~., data=train2 %>% select(-grp))[,-1]
-y <- train2$readmitted
+x2 <- model.matrix(readmitted ~., data=train2 %>% select(-grp))[,-1]
+y2 <- train2$readmitted
 
-training2$race <- factor(training2$race, levels = c("apple", "orange", "banana"))
+x3 <- model.matrix(readmitted ~., data=train3 %>% select(-grp))[,-1]
+y3 <- train3$readmitted
+
+#training2$race <- factor(training2$race, levels = c("apple", "orange", "banana"))
 #indVar = c(var1, var2, var3)   
 #fit =  glmnet(x=data.matrix(train2[,indVar]) , y = train2[,depVar], and other parameters)
 #predictions = predict(fit, newx = data.matrix(test[,indVar]))
 
 set.seed(1)
-cv.lasso.mod <- cv.glmnet(x = x, y = y, alpha = 1, family="binomial")
+cv.lasso.mod <- cv.glmnet(x = x2, y = y2, alpha = 1, family="binomial")
+cv.lasso.mod2 <- cv.glmnet(x = x3, y = y3, alpha = 1, family="binomial")
 
 plot(cv.lasso.mod)
+plot(cv.lasso.mod2)
 ```
 
 ```{r}
 names(cv.lasso.mod)
-#cv.lasso.mod$lambda
-#cv.lasso.mod$cvm
+cv.lasso.mod$lambda
+cv.lasso.mod$cvm
 cv.lasso.mod$lambda.min #lambda with the smallest cv error
 cv.lasso.mod$lambda.1se #largest lambda such that the cv error is within 1 se
                         # of the smallest cv error
@@ -372,6 +379,7 @@ There is a plotting function that looks at log($\lambda$) on the x-axis and CV M
 
 ```{r}
 plot(cv.lasso.mod)
+plot(cv.lasso.mod2)
 ```
 
 I put all these values into a dataset to create a "prettier" graph. 
@@ -381,6 +389,11 @@ lasso.stats <- tibble(lambda = cv.lasso.mod$lambda,
                       cverror = cv.lasso.mod$cvm,
                       upper = cv.lasso.mod$cvup,
                       lower = cv.lasso.mod$cvlo) 
+
+lasso.stats2 <- tibble(lambda = cv.lasso.mod2$lambda,
+                      cverror = cv.lasso.mod2$cvm,
+                      upper = cv.lasso.mod2$cvup,
+                      lower = cv.lasso.mod2$cvlo) 
 ```
 
 
@@ -391,12 +404,20 @@ lasso.stats %>%
   geom_point(color="red") +
   geom_errorbar(aes(ymin=lower, ymax=upper)) +
   xlim(0, 0.002) 
+
+lasso.stats2 %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_point(color="blue") +
+  geom_errorbar(aes(ymin=lower, ymax=upper)) +
+  xlim(0, 0.002) 
 ```
 
 Hmmm, I think I also like lambda on the log scale:
 
 ```{r}
 bestlam.cvup <- cv.lasso.mod$cvup[cv.lasso.mod$lambda==cv.lasso.mod$lambda.min]
+bestlam.cvup2 <- cv.lasso.mod2$cvup[cv.lasso.mod2$lambda==cv.lasso.mod2$lambda.min]
+
 
 lasso.stats %>% 
   ggplot(aes(x=lambda, y=cverror)) +
@@ -408,6 +429,19 @@ lasso.stats %>%
   scale_x_log10() +
   theme_minimal() +
   xlim(0, 0.002) 
+```
+
+```{r}
+lasso.stats2 %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_vline(xintercept = cv.lasso.mod2$lambda.min, color="blue", alpha=.5) +
+  geom_hline(yintercept = bestlam.cvup2, color="blue", alpha=.5) +
+  geom_vline(xintercept = cv.lasso.mod2$lambda.1se, color="orange", alpha=.5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper),color="darkgray") +
+  geom_point(color="red") +
+  scale_x_log10() +
+  theme_minimal() +
+  xlim(0, 0.05) 
 ```
 
 THIS GRAPH WILL HELP YOU SEE MORE CLEARLY THE VALUES OF LAMBDA. I have rounded the values.
@@ -430,8 +464,15 @@ How do I see the models that were fit? We can use the *predict* function and tel
 ```{r}
 predict(cv.lasso.mod, 
         type="coefficients", 
-        s = c(cv.lasso.mod$lambda.min, cv.lasso.mod$lambda.1se, 0.01))
+        s = c(cv.lasso.mod$lambda.min, cv.lasso.mod$lambda.1se, 0.001))
 ```
+
+```{r}
+predict(cv.lasso.mod2, 
+        type="coefficients", 
+        s = c(cv.lasso.mod2$lambda.min, cv.lasso.mod2$lambda.1se, 0.006))
+```
+1 standard deviation away from the mean test error, the lasso method gives us a model with only 4 variables. This model is for Version 2 of the readmitted variable, which treats patients readmitted before 30 days as its own level, and all other patients (readmitted after 30 days or not readmitted at all) as a separate level. 
 
 
 **QUESTIONS**
@@ -439,13 +480,15 @@ predict(cv.lasso.mod,
 * How would you go about using this method to build a model?
 * What if you want to compare this method with another method, like forward selection?
 
-
-
-
 ```{r}
 predict(cv.lasso.mod, type="coefficients", 
         s=c(cv.lasso.mod$lambda.1se))
 ```
+```{r}
+predict(cv.lasso.mod2, type="coefficients", 
+        s=c(cv.lasso.mod2$lambda.1se))
+```
+
 ```{r, eval=FALSE}
 predict(cv.lasso.mod,
         newx = model.matrix(readmitted ~., data=validation2 %>% select(-grp))[,-1],
