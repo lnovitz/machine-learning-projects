@@ -23,7 +23,6 @@ library(faraway,warn.conflicts = FALSE)
 library(forcats,warn.conflicts = FALSE) #to collapse categorical levels
 library(ISLR,warn.conflicts = FALSE)
 library(knitr,warn.conflicts = FALSE)
-library(caret,warn.conflicts = FALSE)
 ```
 ## Section I: Movie Dataset
 
