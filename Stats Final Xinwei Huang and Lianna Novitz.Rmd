@@ -1,5 +1,5 @@
 ---
-title: "Final"
+title: "Machine Learning Clinical and Film Datasets Analysis"
 author: "Xinwei Huang and Lianna Novitz"
 output:
   html_document:
