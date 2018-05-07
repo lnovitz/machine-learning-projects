@@ -377,7 +377,7 @@ coef(bestmodels, id=10)
 
 Through this model, we can conclude that an increase in budget, popularity, runtime, and vote_count will increase the predicted revenue of a movie. And if the category of the movie is Animation or Family, it tends to increases the revenue of the movie dramatically, while the Adventure, Comedy, Horror and Romance categories also increase the predicted revenue of a movie. 
 
-### Part V: Choose three best explainatory varibles. 
+### Part V: Choose three best explanatory variables. 
 
 In this section, we want to find out three variables with the largest interpretability. We want to see which variables decide the predicted revenue of a movie most. 
 We use LASSO method to decreases the number of variables until three left to find this variable. 
@@ -505,7 +505,7 @@ diabetes %>%
   geom_boxplot()
 ```
 
-### Part IV: Analysis
+### Part IV: Transform variables
 
 Using a logistic model, our goal is to predict readmittance before thirty days. We are confined to a binary response variable, so we have to combine levels within readmitted to build a proper model. 
 
@@ -545,7 +545,9 @@ diabetes3 %>%
     count()
 ```
 
-Now to build our logistic model, we will use the lasso method to control for how many variables we include in the model. First we divide the data into a training and validation set. 
+### Part V: Build our models
+
+Now to build our logistic model, we will use the LASSO method to control for how many variables we include in the model. First we divide the data into a training and validation set. 
 
 The code below uses the dataset with version 1 of the readmitted variable.
 ```{r}
@@ -558,7 +560,6 @@ train <- diabetes.trval %>% filter(grp=="train")
 validation <- diabetes.trval %>% filter(grp=="validation")
 ```
 
-
 The code below uses the dataset with version 2 of the readmitted variable.
 ```{r}
 diabetes.trval2 <- diabetes3 %>% 
@@ -570,7 +571,7 @@ train2 <- diabetes.trval2 %>% filter(grp=="train")
 validation2 <- diabetes.trval2 %>% filter(grp=="validation")
 ```
 
-Then we use the lasso method to build our two logistic models representing two different versions of the readmitted variable.
+Then we use the LASSO method to build our two logistic models representing two different versions of the readmitted variable.
 ```{r}
 x2 <- model.matrix(readmitted ~., data=train %>% select(-grp))[,-1]
 y2 <- train$readmitted
@@ -628,26 +629,36 @@ predict(cv.lasso.mod2,
         type="coefficients", 
         s = c(cv.lasso.mod2$lambda.min, cv.lasso.mod2$lambda.1se, 0.0075))
 ```
-Using a lambda value of 0.0075, the lasso method gives us a model with only 4 variables, which is quite simple. This model is for Version 2 of the readmitted variable, which treats patients readmitted before 30 days as its own level, and all other patients (readmitted after 30 days or not readmitted at all) as a separate level. 
+Using a lambda value of 0.0075, the LASSO method gives us a model with only 4 variables, which is quite simple. This model is for Version 2 of the readmitted variable, which treats patients readmitted before 30 days as its own level, and all other patients (readmitted after 30 days or not readmitted at all) as a separate level. 
+
+### Part VI: Choose the best model
 
 Below we use the first version of the readmitted variable to calculate the test error rate of our model with an optimized value of lambda. 
 
 Model 1's Test Error Rate
-```{r}
+```{r, eval=FALSE}
 newX <- model.matrix(factor(readmitted) ~., data = validation[-c(27)])[,-1] #diabetes3
 pred = predict(cv.lasso.mod,newx = newX, type = "response")
 pred_class <- as.numeric(pred > 0.5)
 table(validation$readmitted, pred_class)
+```
+
+```{r}
 error = (10375 + 4607)/(8302 + 10375 + 4607 + 17336)
 error
 ```
 
+Below we use the second version of the readmitted variable to calculate the test error rate of our model with lambda = 0.0075. 
+
 Model 2's Test Error Rate
-```{r}
+```{r, eval=FALSE}
 newX <- model.matrix(factor(readmitted) ~., data = validation2[-c(27)])[,-1] #diabetes3
 pred = predict(cv.lasso.mod2,newx = newX, type = "response", s = c(0.0075))
 pred_class <- as.numeric(pred > 0.5)
 table(validation2$readmitted, pred_class)
+```
+
+```{r}
 error = (4483 + 54)/(47 + 4483 + 54 + 35983)
 error
 ```
@@ -685,7 +696,7 @@ The odds of a patient being readmitted to the hospital within 30 days are multip
 
 ### Part V: Conclusion
 
-In conclusion, we built a logistic model to help predict hospital readmission rates for diabetes patients. We defined readmission with two variable transformations. After using the lasso method to compare model error rates, we ended up choosing the definition that either a patient was readmitted within 30 days or the patient was not. Our final model is the following: $readmitted = -0.00066(numberemergency) + -0.24(numberinpatient) + -0.0064(numberdiagnoses)+ -0.37*I(dischargedisposition)$. The number of emergency room and inpatient visits prior to the incident, number of diagnoses, and whether the patient was transferred to another facility ended up being important variables to predict hospital readmission.
+In conclusion, we built a logistic model to help predict hospital readmission rates for diabetes patients. We defined readmission with two variable transformations. After using the LASSO method to compare model error rates, we ended up choosing the definition that either a patient was readmitted within 30 days or the patient was not. Our final model is the following: $readmitted = -0.00066(numberemergency) + -0.24(numberinpatient) + -0.0064(numberdiagnoses)+ -0.37*I(dischargedisposition)$. The number of emergency room and inpatient visits prior to the incident, number of diagnoses, and whether the patient was transferred to another facility ended up being important variables to predict hospital readmission.
 
 ### Appendix A
 
