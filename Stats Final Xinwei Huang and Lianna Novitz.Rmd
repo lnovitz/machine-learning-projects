@@ -1,0 +1,805 @@
+---
+title: "Final"
+author: "Xinwei Huang and Lianna Novitz"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r,echo = FALSE,message=FALSE}
+library(ggplot2,warn.conflicts = FALSE)
+library(dplyr,warn.conflicts = FALSE)
+library(tidyr,warn.conflicts = FALSE)
+library(readr,warn.conflicts = FALSE)
+library(gridExtra,warn.conflicts = FALSE)
+library(GGally,warn.conflicts = FALSE) 
+library(leaps,warn.conflicts = FALSE) 
+library(glmnet,warn.conflicts = FALSE)
+library(purrr,warn.conflicts = FALSE)
+library(jsonlite,warn.conflicts = FALSE)
+library(curl,warn.conflicts = FALSE)
+library(tibble,warn.conflicts = FALSE)
+library(faraway,warn.conflicts = FALSE)
+library(forcats,warn.conflicts = FALSE) #to collapse categorical levels
+library(ISLR,warn.conflicts = FALSE)
+library(knitr,warn.conflicts = FALSE)
+library(caret,warn.conflicts = FALSE)
+```
+## Section I: Movie Dataset
+
+### Part I: Introduction
+
+This dataset includes around 5000 movies and their relative variables. Our group analyzes the variables in it and build up two models to explain what factors would influence the revenue of a movie using forward selection and LASSO methods. 
+
+```{r,echo = FALSE,message=FALSE}
+tmdb <- read_csv("https://www.dropbox.com/s/sesaejgna9fkg1q/tmdb_5000.csv?dl=1")
+```
+
+```{r,echo = FALSE,message=FALSE}
+#Returns the first two characters listed in the credits in their own columns. 
+#There is a unique row for each movie ID with at least one character.
+
+chars <-
+  tmdb %>% 
+  select(id, cast) %>% 
+  filter(nchar(cast)>2) %>% 
+  mutate(js=map(cast,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(char1 = first(character),
+            char2 = nth(character, n=2))
+
+#Returns the first two genres reported in their own columns. 
+#There is a unique row for each movie ID with at least one genre.
+
+genres <-
+  tmdb %>% 
+  select(id, genres) %>% 
+  filter(nchar(genres)>2) %>% 
+  mutate(js = map(genres,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(genre1 = first(name),
+            genre2 = nth(name, n=2))
+
+#Returns the first two key words reported in their own columns. 
+#There is a unique row for each movie ID with at least one keyword.
+
+keywords <-
+  tmdb %>% 
+  select(id, keywords) %>% 
+  filter(nchar(keywords)>2) %>% 
+  mutate(js = map(keywords,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(keyword1 = first(name),
+            keyword2 = nth(name, n=2))
+
+
+#Returns the first production company. 
+#There is a unique row for each movie ID with at least one production company
+
+production_company <-
+  tmdb %>% 
+  select(id, production_companies) %>% 
+  filter(nchar(production_companies)>2) %>% 
+  mutate(js = map(production_companies,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(prod_comp_main = first(name))
+
+#Returns the first production country. 
+#There is a unique row for each movie ID with at least one production country
+
+production_country <-
+  tmdb %>% 
+  select(id, production_countries) %>% 
+  filter(nchar(production_countries)>2) %>% 
+  mutate(js = map(production_countries,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(country_main = first(iso_3166_1))
+
+#Combine the tables created above with the original data and drops some of the columns.
+
+tmdb_enhanced <-
+  tmdb %>% 
+  select(-genres, -keywords, -production_companies, -production_countries,
+         -spoken_languages, -cast, -crew) %>% 
+  left_join(chars, 
+            by = "id") %>% 
+  left_join(genres, 
+            by = "id") %>% 
+  left_join(keywords, 
+            by = "id") %>% 
+  left_join(production_country,
+            by = "id") %>% 
+  left_join(production_company, 
+            by = "id")
+
+```
+
+
+
+### Part II: Exploring Data
+
+```{r}
+summary(tmdb_enhanced)
+```
+
+First, we summarize the data and look for the question to answer. The whole dataset has 6 quantitative variables and 17 categorical variables, and among them, revenue is a good dependent variable because it is a good measure of a successful movie. So, we want to build the best model to predict the revenue of a movie, based on the data we have. And then, we want to find one most important explanatory variable which can best explain the revenue of a movie. 
+
+In order to find some good categorical variables to use, we made tables for each of reasonable categorical variables. As the result, some of them are not suitable to be included in the model. For example, the keyword variable has too many categories and each category has few observations. Because the table is too long, we don't show it below. For the similar reason, we decide not to use the characters variable and production company variable. For the genres variable, there are two genres variables, which are shown below. We can see that genre1 variable is good to use because its observations are separated into each category. However, genre2 variable has 928 NAs in it, which means it is not a good option for the independent variable. The last categorical variable we explored is the country variable. As shown in Table 3, most of the movies are actually made in the U.S., and many other countries only have 1 movie in its category, so, we decide to not use it in our model. Other categorical variables like website, title, overview etc. are not actually influencing the revenue made, so we just ignore them. 
+
+```{r,echo = FALSE}
+library(knitr)
+kable(
+  tmdb_enhanced %>% 
+    group_by(genre1) %>% 
+    count(),
+  align = c("l", "c"),
+  caption = "Table 1: Distribution of genre1"
+)
+```
+
+```{r,echo = FALSE}
+library(knitr)
+kable(
+  tmdb_enhanced %>% 
+    group_by(genre2) %>% 
+    count(),
+  align = c("l", "c"),
+  caption = "Table 2: Distribution of genre2"
+)
+```
+
+```{r,echo = FALSE}
+library(knitr)
+kable(
+  tmdb_enhanced %>% 
+    group_by(country_main) %>% 
+    count(),
+  align = c("l", "c"),
+  caption = "Table 3: Distribution of countries of production"
+)
+```
+
+Because we exclude all other categorical variables except the genre1, we made a new dataset that with no N/A in it.  And we observed that there are many 0s in the revenue and budget variable, which is not realistic. So, we remove all observations that have 0 revenue or budget. 
+
+```{r,echo = FALSE}
+tmdb_mod <-
+  tmdb_enhanced %>%
+  select(revenue, budget, popularity, runtime, vote_average, vote_count, genre1,genre2,country_main) %>%
+  drop_na()
+
+tmdb_mod1 <-
+  tmdb_mod %>% filter(budget!=0, revenue!=0)
+
+```
+
+Next, we analyze the relationship between quantitative variables and our dependent variable revenue. By reasoning, we can see that all 5 quantitative variables other than revenue tend to influence the revenue of a movie. A higher popularity and vote count mean there are more people have seen this movie, which creates more revenue. A higher vote score means the movie is better so that more people are going to watch the movie and thus increases the revenue. A higher budget tends to make better special effects in the movie and thus make it more attractive. And longer runtime means the movie has the longer time to tell the whole story, which may make it more attractive for the audience. So, all 5 quantitative variables are good to be used as independent variables. We plot the relationship between each of those 5 and the revenue variable by establishing simple linear regressions. 
+
+```{r,message=FALSE,echo = FALSE}
+budgetmod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$budget)
+budgetr <- tmdb_mod %>% 
+  ggplot(aes(x=budget, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept =  -8.045e+05, slope = 3.015e+00, size = 1)
+
+
+
+popularitymod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$popularity)
+popularityr <- tmdb_mod %>% 
+  ggplot(aes(x=popularity, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = 37116443, slope = 3087125, size = 1)
+
+
+
+votecountmod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$vote_count)
+votecountr <- tmdb_mod %>% 
+  ggplot(aes(x=vote_count, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = 25183820, slope = 100742, size = 1)
+
+
+voteaveragemod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$vote_average)
+voteaverager <- tmdb_mod %>% 
+  ggplot(aes(x=vote_average, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept = -159639659, slope = 46095474, size = 1)
+
+
+runtimemod <- lm(tmdb_mod1$revenue ~ tmdb_mod1$runtime)
+runtimer <- tmdb_mod %>% 
+  ggplot(aes(x=runtime, y=revenue)) +
+  geom_point(color="red") +
+  geom_abline(intercept =  -117198218, slope = 2241274, size = 1)
+
+
+grid.arrange(budgetr,popularityr,runtimer,voteaverager,votecountr, ncol=3)
+```
+
+We can see from those plots that budget variable and vote_count variable have a good linear relationship with revenue. The rest three variables don't have an obvious linear relationship with revenue, but the simple model regressions show that they are statistically significant in interpreting the revenue. So, we are going to use all of those 5 variables as independent variables. 
+
+### Part III: Checking Model Assumptions
+After exploring the data, we want to build up a model including all variables we found suitable to predict revenue and check model assumptions to decide if we want to transform the data. 
+
+```{r,echo = FALSE}
+basicmod <- lm(revenue ~ budget + popularity + runtime + vote_average + vote_count + genre1,data = tmdb_mod1)
+summary(basicmod)
+```
+From the model, we see that the p-value of budget, popularity, runtime, and vote_count are all significant, but vote_average is not significant. And for the categorical variable, some of them are significant while others are not. So, we decide to exclude vote_average. And then, we plot the residual vs. fitted value, histogram and qq plots to check the model assumptions. 
+
+```{r,echo = FALSE}
+tmdb_mod1 <-
+  tmdb_mod1 %>%
+  select(revenue, budget, popularity, runtime, vote_count, genre1) 
+```
+
+```{r,echo = FALSE}
+basicmod1 <- lm(revenue ~ budget + popularity + runtime + vote_count + genre1,data = tmdb_mod1)
+
+rvf <-
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod1$fitted.values, 
+         resids = basicmod1$residuals) %>% 
+  ggplot(aes(x=fitted.vals, y=resids)) +
+  geom_jitter(width = 5) +
+  geom_hline(yintercept = 0, color="gray") +
+  geom_smooth(se = FALSE)
+
+
+hist <- 
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod1$fitted.values, 
+         resids = basicmod1$residuals) %>% 
+  ggplot(aes(x=resids)) +
+  geom_histogram()
+
+
+qq <-
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod1$fitted.values, 
+         resids = basicmod1$residuals) %>% 
+  ggplot(aes(sample=resids)) +
+  geom_qq() 
+
+grid.arrange(rvf,hist,qq, ncol=2)
+```
+
+We see that the residuals are clustered at left, and the mean error is increasing as fitted values increases. The histogram of the residuals shows a roughly normal distribution but the qq plot shows a departure of 45 degrees line. So, we try to use the log value of revenue. Afterward, we rebuild the model and check the model assumption again. 
+
+```{r,echo = FALSE}
+logrevenue <- log(tmdb_mod1$revenue)
+tmdb_mod1$logrevenue <- logrevenue
+```
+
+
+```{r,echo = FALSE}
+basicmod2 <- lm(logrevenue~budget + popularity + runtime + vote_count + genre1,data = tmdb_mod1)
+
+rvf1<-
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod2$fitted.values, 
+         resids = basicmod2$residuals) %>% 
+  ggplot(aes(x=fitted.vals, y=resids)) +
+  geom_jitter(width = 5) +
+  geom_hline(yintercept = 0, color="gray") +
+  geom_smooth(se = FALSE)
+
+
+hist1<- 
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod2$fitted.values, 
+         resids = basicmod2$residuals) %>% 
+  ggplot(aes(x=resids)) +
+  geom_histogram()
+
+
+qq1<- 
+  tmdb_mod1 %>% 
+  mutate(fitted.vals = basicmod2$fitted.values, 
+         resids = basicmod2$residuals) %>% 
+  ggplot(aes(sample=resids)) +
+  geom_qq() 
+
+grid.arrange(rvf1,hist1,qq1, ncol=2)
+```
+
+We see that after taking the log revenue, the constant variance and mean error is departing from 0, and the histogram shows that the residual skews to left. The qq plot even departs more from the 45-degree line than non-logged revenue model. So, we decide to use the original revenue as the dependent variable. 
+
+
+
+### Part IV: Choose the best model using forward selection. 
+
+In order to get the best model that interpret the revenue, we use the forward selection of the variables. 
+
+```{r, echo = FALSE}
+set.seed(10)
+
+
+tmdb.tr.test <- 
+  tmdb_mod1 %>% 
+  mutate(grp = sample(c("tr", "test"), size=n(), replace = TRUE, prob = c(.8,.2)))  
+  
+  
+tmdb.train <- tmdb.tr.test %>% 
+  filter(grp == "tr") %>% 
+  select(-grp)
+
+tmdb.test <- tmdb.tr.test %>% 
+  filter(grp == "test") %>% 
+  select(-grp)
+```
+
+```{r,echo = FALSE}
+bestmodels <- regsubsets(x = revenue ~ ., 
+                   data = tmdb.train,
+                   nvmax = 22,         
+                   method = "forward")
+
+summary(bestmodels)
+```
+
+Next, we calculate the cv errors of different models in order to find the best model. We are limiting the most number of variables to 10 because more than 10 variables make the model too complicated. 
+
+```{r,echo = FALSE}
+predict.regsubsets <- function(object, newdata, id, ...){
+  form <- as.formula(object$call[[2]])
+  coefi <- coef(object, id=id)
+  model.matrix(form, data=newdata)[,names(coefi)] %*% coefi
+}
+```
+
+```{r,echo = FALSE}
+MSPEs = list()
+for (i in 1:10){
+  prei <- predict.regsubsets(object = bestmodels, 
+                   newdata = tmdb.test,
+                   id = i)
+  MSPEs[i] <- mean((tmdb.test$revenue - prei)^2)
+}
+MSPEs
+```
+
+As the result, 10 variables model has the lowest cv error. So, our model to predict the movie revenue is 
+$$
+Revenue = B_0+B_1*budget+B_2*popularity+B_3*runtime+B_4*votecount+B_5*genre1Advaenture+B_6*genre1Animation+B_7*genre1Comedy+B_8*genre1Family+B_9*genre1Horror + B_10*genre1Romance
+$$
+
+And the coefficients are
+
+```{r}
+coef(bestmodels, id=10)
+```
+
+
+Through this model, we can conclude that an increase in budget, popularity, runtime, and vote_count will increase the predicted revenue of a movie. And if the category of the movie is Animation or Family, it tends to increases the revenue of the movie dramatically, while the Adventure, Comedy, Horror and Romance categories also increase the predicted revenue of a movie. 
+
+### Part V: Choose three best explainatory varibles. 
+
+In this section, we want to find out three variables with the largest interpretability. We want to see which variables decide the predicted revenue of a movie most. 
+We use LASSO method to decreases the number of variables until three left to find this variable. 
+
+```{r, echo = FALSE}
+tmdb.train2 <- tmdb.train %>% 
+  drop_na()
+
+tmdb.test2 <- tmdb.test %>%
+  drop_na()
+
+x <- model.matrix(revenue ~., data=tmdb.train2)[,-1]
+y <- tmdb.train2$revenue
+```
+
+```{r, echo = FALSE}
+set.seed(10)
+cv.tmdb.mod <- cv.glmnet(x = x, y = y, alpha = 1)
+```
+
+```{r,echo = FALSE}
+lasso.stats <- tibble(lambda = cv.tmdb.mod$lambda,
+                      cverror = cv.tmdb.mod$cvm,
+                      upper = cv.tmdb.mod$cvup,
+                      lower = cv.tmdb.mod$cvlo) 
+
+lasso.stats %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_point(color="red") +
+  geom_errorbar(aes(ymin=lower, ymax=upper))
+
+bestlam.cvup <- cv.tmdb.mod$cvup[cv.tmdb.mod$lambda==cv.tmdb.mod$lambda.min]
+
+lasso.stats %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_vline(xintercept = cv.tmdb.mod$lambda.min, color="blue", alpha=.5) +
+  geom_hline(yintercept = bestlam.cvup, color="blue", alpha=.5) +
+  geom_vline(xintercept = cv.tmdb.mod$lambda.1se, color="orange", alpha=.5) +
+  geom_errorbar(aes(ymin=lower, ymax=upper),color="darkgray") +
+  geom_point(color="red") +
+  scale_x_log10() +
+  theme_minimal()
+```
+
+The graph above shows that the vcerror increases dramatically after lambda is larger than $1*se$ from the min. So, we begin with the lambda value that 1 se away from the min. 
+
+```{r}
+predict(cv.tmdb.mod, 
+        type="coefficients", 
+        s = c(cv.tmdb.mod$lambda.min,1*10^7,(1.95)*10^7, cv.tmdb.mod$lambda.1se))
+
+```
+
+We tried 4 different lambda values, which are the lambda that minimizes the cv error, $1*10^7$,$(1.95)*10^7$, and the lambda that 1 standard error from the min lambda. As the result, when lambda = $(1.95)*10^7$, we have three variables left. The left variables are budget, popularity, and vote_count. This means that the genre of a movie and other variables do not influence the predicted revenue of a movie as much as its budget, popularity, and number of votes. Therefore, a movie with a high budget tends to have high revenue. And the movie with high popularity and thus more votes in websites tend to have higher revenue. The final model we got is:
+
+$$
+Revenue = B_0+B_1*budget+B_2*popularity+B_3*vote_count
+$$
+
+### Part VI: Conclusion
+
+In conclusion, using the forward selection, our group find that the best model is $ Revenue = B_0+B_1*budget+B_2*popularity+B_3*runtime+B_4*votecount+B_5*genre1Advaenture+B_6*genre1Animation+B_7*genre1Comedy+B_8*genre1Family+B_9*genre1Horror + B_10*genre1Romance$. The adding of each of those variables will decrease the error of the prediction. Afterward, we use LASSO method to find 3 variables with the largest interpretability for the revenue. As the result, the model we got is $Revenue = B_0+B_1*budget+B_2*popularity+B_3*vote_count$. It turns out that the budget, the popularity and how many people vote for the movie online mostly influence the predicted revenue of a movie. 
+
+
+
+
+## Section II: Hospital Dataset
+
+
+```{r}
+diabetes <- read_csv("https://www.dropbox.com/s/odtsp7foaugu694/diabetes_data_clean.csv?dl=1")
+```
+
+### Part I: Introduction
+According to the authors, “The dataset represents 10 years (1999-2008) of clinical care at 130 US hospitals and integrated delivery networks. It includes over 50 features representing patient and hospital outcomes. Information was extracted from the database for encounters that satisfied the following criteria.
+
+1. It is an inpatient encounter (a hospital admission).
+2. It is a diabetic encounter, that is, one during which any kind of diabetes was entered to the system as a diagnosis.
+3. The length of stay was at least 1 day and at most 14 days.
+4. Laboratory tests were performed during the encounter.
+5. Medications were administered during the encounter."
+
+Citation: Beata Strack, Jonathan P. DeShazo, Chris Gennings, Juan L. Olmo, Sebastian Ventura, Krzysztof J. Cios, and John N. Clore, “Impact of HbA1c Measurement on Hospital Readmission Rates: Analysis of 70,000 Clinical Database Patient Records,” BioMed Research International, vol. 2014, Article ID 781670, 11 pages, 2014
+
+### Part II: Research Question
+It's a problem for hospitals if a patient is readmitted before 30 days, so my question is, what characteristics make a patient more likely to be readmitted before 30 days? How can hospital staff reduce this rate?
+
+First of all, let's see what the rate of readmission before 30 days is.
+
+```{r}
+kable(
+  diabetes %>% 
+    group_by(readmitted) %>% 
+    count(),
+  align = c("l", "c"),
+  caption = "Table 1: Readmission Categories"
+)
+```
+```{r, echo=FALSE}
+11357/(11357 + 35545 + 54864)
+35545/(11357 + 35545 + 54864)
+54864/(11357 + 35545 + 54864)
+```
+The rate of readmission before 30 days is about 11%. The rate of readmission after 30 days is about 35%. The rate of no readmission is about 54%.
+
+So our job is to find the features which make a hospital patient more likely to be readmitted before 30 days. 
+
+### Part III: Exploring Relationships
+
+We want to find out characteristics about patients who were readmitted before 30 days was up. 
+
+The boxplot below shows, perhaps, a slightly higher rate of readmission before 30 days is correlated with a higher number of inpatient visits in the year preceding the specific hospital this specific encounter. This intuitively makes sense.
+
+```{r}
+diabetes %>% 
+  ggplot(aes(x=factor(readmitted), y=number_inpatient)) +
+  geom_boxplot()
+```
+
+The boxplot below does not seem to show a difference between the amount of time spent in the hospital for those readmitted within thirty days of the encounter versus those readmitted after thirty days of the encounter. There does appear to be a difference between the amount of time spent in the hospital for those not readmitted after the encounter in that year and those readmitted, however.
+
+```{r}
+diabetes %>% 
+  ggplot(aes(x=factor(readmitted), y=time_in_hospital)) +
+  geom_boxplot()
+```
+
+### Part IV: Analysis
+
+Using a logistic model, our goal is to predict readmittance before thirty days. We are confined to a binary response variable, so we have to combine levels within readmitted to build a proper model. 
+
+We transformed the readmitted variable so it only has two levels. 
+
+Before the transformation, the readmitted variable contained 3 levels, revealing whether a patient was readmitted before 30 days, after 30 days, or not at all after the recorded encounter.
+
+```{r}
+diabetes %>% 
+    group_by(readmitted) %>% 
+    count()
+```
+
+After the transformation, the readmitted variable contains only 2 levels, revealing whether a patient was readmitted at all or not at all after the recorded encounter. We'll call this version 1 of the readmitted variable.
+```{r, echo=FALSE}
+diabetes2 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(YES = c("<30",">30")))
+```
+
+```{r}
+diabetes2 %>% 
+    group_by(readmitted) %>% 
+  count()
+```
+
+We also decided to transform the readmitted variable in a different way that contains only 2 levels. 
+
+Instead of collapsing readmissions into one level, I will treat readmissions after thirty days and no readmissions as one level, and readmissions before thirty days as the second level. We'll call this version 2 of the readmitted variable.
+```{r, echo=FALSE}
+diabetes3 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(NO = c("NO",">30")))
+```
+
+```{r}
+diabetes3 %>% 
+    group_by(readmitted) %>% 
+    count()
+```
+
+Now to build our logistic model, we will use the lasso method to control for how many variables we include in the model. First we divide the data into a training and validation set. 
+
+The code below uses the dataset with version 1 of the readmitted variable.
+```{r}
+diabetes.trval <- diabetes2 %>% 
+  mutate(grp = sample(c("train", "validation"), 
+                      size=n(), 
+                      prob = c(.6,.4),
+                      replace=TRUE))
+train <- diabetes.trval %>% filter(grp=="train")
+validation <- diabetes.trval %>% filter(grp=="validation")
+```
+
+
+The code below uses the dataset with version 2 of the readmitted variable.
+```{r}
+diabetes.trval2 <- diabetes3 %>% 
+  mutate(grp = sample(c("train", "validation"), 
+                      size=n(), 
+                      prob = c(.6,.4),
+                      replace=TRUE))
+train2 <- diabetes.trval2 %>% filter(grp=="train")
+validation2 <- diabetes.trval2 %>% filter(grp=="validation")
+```
+
+Then we use the lasso method to build our two logistic models representing two different versions of the readmitted variable.
+```{r}
+x2 <- model.matrix(readmitted ~., data=train %>% select(-grp))[,-1]
+y2 <- train$readmitted
+
+x3 <- model.matrix(readmitted ~., data=train2 %>% select(-grp))[,-1]
+y3 <- train2$readmitted
+
+set.seed(1)
+cv.lasso.mod <- cv.glmnet(x = x2, y = y2, alpha = 1, family="binomial")
+cv.lasso.mod2 <- cv.glmnet(x = x3, y = y3, alpha = 1, family="binomial")
+```
+
+```{r, echo=FALSE}
+lasso.stats <- tibble(lambda = cv.lasso.mod$lambda,
+                      cverror = cv.lasso.mod$cvm,
+                      upper = cv.lasso.mod$cvup,
+                      lower = cv.lasso.mod$cvlo) 
+
+lasso.stats2 <- tibble(lambda = cv.lasso.mod2$lambda,
+                      cverror = cv.lasso.mod2$cvm,
+                      upper = cv.lasso.mod2$cvup,
+                      lower = cv.lasso.mod2$cvlo) 
+```
+
+Below is a plot showing optimal lambda values that minimize the test error rate for our first model. As the lambda value increases, the test error rate changes more rapidly than what we see in our second model (see below.)
+```{r}
+lasso.stats %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_point(color="red") +
+  geom_errorbar(aes(ymin=lower, ymax=upper)) +
+  xlim(0, 0.008) +
+  geom_vline(xintercept = cv.lasso.mod$lambda.1se, color="orange", alpha=.5)
+```
+Below is a plot showing optimal lambda values that minimize the test error rate for our second model. As we can see, as the lambda value increases, the test error rate remains pretty constant, which is good if we want to make our model more simple with less variables.
+
+```{r}
+lasso.stats2 %>% 
+  ggplot(aes(x=lambda, y=cverror)) +
+  geom_point(color="blue") +
+  geom_errorbar(aes(ymin=lower, ymax=upper)) +
+  xlim(0, 0.008) +
+  geom_vline(xintercept = cv.lasso.mod2$lambda.1se, color="orange", alpha=.5)
+```
+
+To see the models that were fit, we use the *predict* function with three different values of *lambda*. Below, we look at the models for the value of $\lambda$ with the smallest test error, the value of $\lambda$ with the largest test error within one standard deviation of the smallest test error, and $\lambda= 0.0004$, which is between the two. 
+
+```{r}
+predict(cv.lasso.mod, 
+        type="coefficients", 
+        s = c(cv.lasso.mod$lambda.min, cv.lasso.mod$lambda.1se, 0.008))
+```
+
+```{r}
+predict(cv.lasso.mod2, 
+        type="coefficients", 
+        s = c(cv.lasso.mod2$lambda.min, cv.lasso.mod2$lambda.1se, 0.0075))
+```
+Using a lambda value of 0.0075, the lasso method gives us a model with only 4 variables, which is quite simple. This model is for Version 2 of the readmitted variable, which treats patients readmitted before 30 days as its own level, and all other patients (readmitted after 30 days or not readmitted at all) as a separate level. 
+
+Below we use the first version of the readmitted variable to calculate the test error rate of our model with an optimized value of lambda. 
+
+Model 1's Test Error Rate
+```{r}
+newX <- model.matrix(factor(readmitted) ~., data = validation[-c(27)])[,-1] #diabetes3
+pred = predict(cv.lasso.mod,newx = newX, type = "response")
+pred_class <- as.numeric(pred > 0.5)
+table(validation$readmitted, pred_class)
+error = (10375 + 4607)/(8302 + 10375 + 4607 + 17336)
+error
+```
+
+Model 2's Test Error Rate
+```{r}
+newX <- model.matrix(factor(readmitted) ~., data = validation2[-c(27)])[,-1] #diabetes3
+pred = predict(cv.lasso.mod2,newx = newX, type = "response", s = c(0.0075))
+pred_class <- as.numeric(pred > 0.5)
+table(validation2$readmitted, pred_class)
+error = (4483 + 54)/(47 + 4483 + 54 + 35983)
+error
+```
+
+Since the test error rate of Model 1 is nearly 37%, we're going to choose Model 2 as the best predictive model for readmission rates because Model 2's test error is only about 11%. Model 2's equation is below.
+$$
+readmitted = -0.00066(numberemergency) + -0.24(numberinpatient) + \\ -0.0064(numberdiagnoses)
++ -0.37*I(dischargedisposition)
+$$
+
+Note: I is 1 if the patient was transferred to another facility following the incident.
+
+Next we compute the odds that a diabetes patient is readmitted to the hospital within 30 days based on the number of emergency visits recorded prior to the incident, the number of inpatient visits recorded prior to the incident, the number of diagnoses made at the hospital, and whether the patient was transferred to another hospital following the incident.
+
+```{r}
+odds_emer = exp(coef(cv.lasso.mod2, s = c(0.0075))[23])
+odds_emer
+```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .99, given the number of emergency room visits.
+```{r}
+odds_inpat = exp(coef(cv.lasso.mod2, s = c(0.0075))[24])
+odds_inpat
+```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .79, given the number of inpatient visits.
+```{r}
+odds_diag = exp(coef(cv.lasso.mod2, s = c(0.0075))[25])
+odds_diag
+```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .99, given the number of diagnoses.
+```{r}
+odds_transfer = exp(coef(cv.lasso.mod2, s = c(0.0075))[64])
+odds_transfer
+```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .69, given that the patient was transferred to another facility.
+
+### Part V: Conclusion
+
+In conclusion, we built a logistic model to help predict hospital readmission rates for diabetes patients. We defined readmission with two variable transformations. After using the lasso method to compare model error rates, we ended up choosing the definition that either a patient was readmitted within 30 days or the patient was not. Our final model is the following: $readmitted = -0.00066(numberemergency) + -0.24(numberinpatient) + -0.0064(numberdiagnoses)+ -0.37*I(dischargedisposition)$. The number of emergency room and inpatient visits prior to the incident, number of diagnoses, and whether the patient was transferred to another facility ended up being important variables to predict hospital readmission.
+
+### Appendix A
+
+```{r,eval=FALSE}
+#Returns the first two characters listed in the credits in their own columns. 
+#There is a unique row for each movie ID with at least one character.
+
+chars <-
+  tmdb %>% 
+  select(id, cast) %>% 
+  filter(nchar(cast)>2) %>% 
+  mutate(js=map(cast,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(char1 = first(character),
+            char2 = nth(character, n=2))
+
+#Returns the first two genres reported in their own columns. 
+#There is a unique row for each movie ID with at least one genre.
+
+genres <-
+  tmdb %>% 
+  select(id, genres) %>% 
+  filter(nchar(genres)>2) %>% 
+  mutate(js = map(genres,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(genre1 = first(name),
+            genre2 = nth(name, n=2))
+
+#Returns the first two key words reported in their own columns. 
+#There is a unique row for each movie ID with at least one keyword.
+
+keywords <-
+  tmdb %>% 
+  select(id, keywords) %>% 
+  filter(nchar(keywords)>2) %>% 
+  mutate(js = map(keywords,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(keyword1 = first(name),
+            keyword2 = nth(name, n=2))
+
+
+#Returns the first production company. 
+#There is a unique row for each movie ID with at least one production company
+
+production_company <-
+  tmdb %>% 
+  select(id, production_companies) %>% 
+  filter(nchar(production_companies)>2) %>% 
+  mutate(js = map(production_companies,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(prod_comp_main = first(name))
+
+#Returns the first production country. 
+#There is a unique row for each movie ID with at least one production country
+
+production_country <-
+  tmdb %>% 
+  select(id, production_countries) %>% 
+  filter(nchar(production_countries)>2) %>% 
+  mutate(js = map(production_countries,fromJSON)) %>% 
+  unnest(js, .drop = FALSE) %>% 
+  group_by(id) %>% 
+  summarize(country_main = first(iso_3166_1))
+
+#Combine the tables created above with the original data and drops some of the columns.
+
+tmdb_enhanced <-
+  tmdb %>% 
+  select(-genres, -keywords, -production_companies, -production_countries,
+         -spoken_languages, -cast, -crew) %>% 
+  left_join(chars, 
+            by = "id") %>% 
+  left_join(genres, 
+            by = "id") %>% 
+  left_join(keywords, 
+            by = "id") %>% 
+  left_join(production_country,
+            by = "id") %>% 
+  left_join(production_company, 
+            by = "id")
+
+```
+
+```{r,eval = FALSE}
+# make a new dataset that only contains variables we want
+tmdb_mod <-
+  tmdb_enhanced %>%
+  select(revenue, budget, popularity, runtime, vote_average, vote_count, genre1,genre2,country_main) %>%
+  drop_na()
+
+tmdb_mod1 <-
+  tmdb_mod %>% filter(budget!=0, revenue!=0)
+
+```
+
+```{r,eval = FALSE}
+# delete the variables we found that are not suitable. 
+tmdb_mod1 <-
+  tmdb_mod1 %>%
+  select(revenue, budget, popularity, runtime, vote_count, genre1) 
+```
+
+### Appendix B
+
+```{r, eval=FALSE}
+diabetes2 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(YES = c("<30",">30")))
+```
+
+```{r, eval=FALSE}
+diabetes3 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(NO = c("NO",">30")))
+```
