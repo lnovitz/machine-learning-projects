@@ -532,7 +532,7 @@ diabetes2 %>%
 
 We also decided to transform the readmitted variable in a different way that contains only 2 levels. 
 
-Instead of collapsing readmissions into one level, I will treat readmissions after thirty days and no readmissions as one level, and readmissions before thirty days as the second level. We'll call this version 2 of the readmitted variable.
+Instead of collapsing readmissions into one level, we will treat readmissions after thirty days and no readmissions as one level, and readmissions before thirty days as the second level. We'll call this version 2 of the readmitted variable.
 ```{r, echo=FALSE}
 diabetes3 <- diabetes %>% 
   mutate(readmitted = readmitted %>% fct_collapse(NO = c("NO",">30")))
@@ -693,7 +693,7 @@ odds_transfer
 ```
 The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .69, given that the patient was transferred to another facility.
 
-### Part V: Conclusion
+### Part VII: Conclusion
 
 In conclusion, we built a logistic model to help predict hospital readmission rates for diabetes patients. We defined readmission with two variable transformations. After using the LASSO method to compare model error rates, we ended up choosing the definition that either a patient was readmitted within 30 days or the patient was not. Our final model is the following: $readmitted = -0.00066(numberemergency) + -0.24(numberinpatient) + -0.0064(numberdiagnoses)+ -0.37*I(dischargedisposition)$. The number of emergency room and inpatient visits prior to the incident, number of diagnoses, and whether the patient was transferred to another facility ended up being important variables to predict hospital readmission.
 
