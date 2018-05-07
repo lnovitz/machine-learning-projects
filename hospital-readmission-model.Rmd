@@ -18,9 +18,6 @@ library(glmnet)
 library(faraway)
 library(forcats) #to collapse categorical levels
 library(ISLR)
-library(rpart)
-library(rpart.plot)
-library(randomForest)
 library(knitr)
 ```
 
@@ -207,9 +204,6 @@ diabetes %>%
     group_by(readmitted) %>% 
     count()
 ```
-```{r}
-11357 + 35545
-```
 
 ```{r, echo=FALSE}
 diabetes %>% 
@@ -228,14 +222,7 @@ diabetes %>%
     group_by(discharge_disposition) %>% 
     count()
 ```
-I want to find out characteristics about patients who were readmitted before 30 days was up. 
-
-The density plot below may hint that patients who were sent home have slightly higher rates of readmittance before 30 days. 
-```{r}
-diabetes %>% 
-  ggplot(aes(x=discharge_disposition, fill=factor(readmitted))) +
-  geom_density(alpha=.5)
-```
+We want to find out characteristics about patients who were readmitted before 30 days was up. 
 
 The boxplot below shows, perhaps, a slightly higher rate of readmission before 30 days is correlated with a higher number of inpatient visits in the year preceding the specific hospital this specific encounter. This intuitively makes sense.
 
@@ -244,16 +231,16 @@ diabetes %>%
   ggplot(aes(x=factor(readmitted), y=number_inpatient)) +
   geom_boxplot()
 ```
-The boxplot below does seem to show a difference between the amount of time spent in the hospital for those readmitted after the encounter and those not readmitted.
+The boxplot below does not seem to show a difference between the amount of time spent in the hospital for those readmitted within thirty days of the encounter versus those readmitted after thirty days of the encounter. There does appear to be a difference between the amount of time spent in the hospital for those not readmitted after the encounter in that year and those readmitted, however.
 ```{r}
 diabetes %>% 
   ggplot(aes(x=factor(readmitted), y=time_in_hospital)) +
   geom_boxplot()
 ```
 
-### Logistic Model
+### Analysis
 
-Using this logistic model, we are confined to a binary response variable, so we have to combine levels within readmitted to build a proper model. 
+Using a logistic model, our goal is to predict readmittance before thirty days. We are confined to a binary response variable, so we have to combine levels within readmitted to build a proper model. 
 
 We transformed the readmitted variable so it only has two levels. 
 
@@ -265,7 +252,7 @@ diabetes %>%
     count()
 ```
 
-After the transformation, the readmitted variable contains only 2 levels, revealing whether a patient was readmitted at all or not at all after the recorded encounter.
+After the transformation, the readmitted variable contains only 2 levels, revealing whether a patient was readmitted at all or not at all after the recorded encounter. We'll call this version 1 of the readmitted variable.
 ```{r, echo=FALSE}
 diabetes2 <- diabetes %>% 
   mutate(readmitted = readmitted %>% fct_collapse(YES = c("<30",">30")))
@@ -277,7 +264,9 @@ diabetes2 %>%
   count()
 ```
 
-We also decided to transform the readmitted variable in a different way that contains only 2 levels. Instead of collapsing readmissions into one level, I will treat readmissions after thirty days and no readmissions as one level, and readmissions before thirty days as the second level.
+We also decided to transform the readmitted variable in a different way that contains only 2 levels. 
+
+Instead of collapsing readmissions into one level, I will treat readmissions after thirty days and no readmissions as one level, and readmissions before thirty days as the second level. We'll call this version 2 of the readmitted variable.
 ```{r, echo=FALSE}
 diabetes3 <- diabetes %>% 
   mutate(readmitted = readmitted %>% fct_collapse(NO = c("NO",">30")))
@@ -289,60 +278,45 @@ diabetes3 %>%
     count()
 ```
 
-Now to build our logistic model, we will use the lasso method to control for how many variables we include in the model. First we divide the data into a training and validation set.
+Now to build our logistic model, we will use the lasso method to control for how many variables we include in the model. First we divide the data into a training and validation set. 
+
+The code below uses the dataset with version 1 of the readmitted variable.
 ```{r}
-diabetes.trval2 <- diabetes2 %>% 
+diabetes.trval <- diabetes2 %>% 
+  mutate(grp = sample(c("train", "validation"), 
+                      size=n(), 
+                      prob = c(.6,.4),
+                      replace=TRUE))
+train <- diabetes.trval %>% filter(grp=="train")
+validation <- diabetes.trval %>% filter(grp=="validation")
+```
+
+
+The code below uses the dataset with version 2 of the readmitted variable.
+```{r}
+diabetes.trval2 <- diabetes3 %>% 
   mutate(grp = sample(c("train", "validation"), 
                       size=n(), 
                       prob = c(.6,.4),
                       replace=TRUE))
 train2 <- diabetes.trval2 %>% filter(grp=="train")
 validation2 <- diabetes.trval2 %>% filter(grp=="validation")
-
-diabetes.trval3 <- diabetes3 %>% 
-  mutate(grp = sample(c("train", "validation"), 
-                      size=n(), 
-                      prob = c(.6,.4),
-                      replace=TRUE))
-train3 <- diabetes.trval3 %>% filter(grp=="train")
-validation3 <- diabetes.trval3 %>% filter(grp=="validation")
 ```
 
-Then we use the lasso method to build our model.
+Then we use the lasso method to build our two logistic models representing two different versions of the readmitted variable.
 ```{r}
-x2 <- model.matrix(readmitted ~., data=train2 %>% select(-grp))[,-1]
-y2 <- train2$readmitted
+x2 <- model.matrix(readmitted ~., data=train %>% select(-grp))[,-1]
+y2 <- train$readmitted
 
-x3 <- model.matrix(readmitted ~., data=train3 %>% select(-grp))[,-1]
-y3 <- train3$readmitted
+x3 <- model.matrix(readmitted ~., data=train2 %>% select(-grp))[,-1]
+y3 <- train2$readmitted
 
 set.seed(1)
 cv.lasso.mod <- cv.glmnet(x = x2, y = y2, alpha = 1, family="binomial")
 cv.lasso.mod2 <- cv.glmnet(x = x3, y = y3, alpha = 1, family="binomial")
-
-plot(cv.lasso.mod)
-plot(cv.lasso.mod2)
 ```
 
-```{r}
-names(cv.lasso.mod)
-cv.lasso.mod$lambda
-cv.lasso.mod$cvm
-cv.lasso.mod$lambda.min #lambda with the smallest cv error
-cv.lasso.mod$lambda.1se #largest lambda such that the cv error is within 1 se
-                        # of the smallest cv error
-```
-
-There is a plotting function that looks at log($\lambda$) on the x-axis and CV MSE on the y-axis. Because I love ggplot graphics so much, I changed this to a ggplot below.
-
-```{r}
-plot(cv.lasso.mod)
-plot(cv.lasso.mod2)
-```
-
-I put all these values into a dataset to create a "prettier" graph. 
-First, make the dataset:
-```{r}
+```{r, echo=FALSE}
 lasso.stats <- tibble(lambda = cv.lasso.mod$lambda,
                       cverror = cv.lasso.mod$cvm,
                       upper = cv.lasso.mod$cvup,
@@ -354,96 +328,106 @@ lasso.stats2 <- tibble(lambda = cv.lasso.mod2$lambda,
                       lower = cv.lasso.mod2$cvlo) 
 ```
 
-
-First attempt:
+Below is a plot showing optimal lambda values that minimize the test error rate for our first model. As the lambda value increases, the test error rate changes more rapidly than what we see in our second model (see below.)
 ```{r}
 lasso.stats %>% 
   ggplot(aes(x=lambda, y=cverror)) +
   geom_point(color="red") +
   geom_errorbar(aes(ymin=lower, ymax=upper)) +
-  xlim(0, 0.002) 
+  xlim(0, 0.008) +
+  geom_vline(xintercept = cv.lasso.mod$lambda.1se, color="orange", alpha=.5)
+```
+Below is a plot showing optimal lambda values that minimize the test error rate for our second model. As we can see, as the lambda value increases, the test error rate remains pretty constant, which is good if we want to make our model more simple with less variables.
 
+```{r}
 lasso.stats2 %>% 
   ggplot(aes(x=lambda, y=cverror)) +
   geom_point(color="blue") +
   geom_errorbar(aes(ymin=lower, ymax=upper)) +
-  xlim(0, 0.002) 
+  xlim(0, 0.008) +
+  geom_vline(xintercept = cv.lasso.mod2$lambda.1se, color="orange", alpha=.5)
 ```
 
-Hmmm, I think I also like lambda on the log scale:
-
-```{r}
-bestlam.cvup <- cv.lasso.mod$cvup[cv.lasso.mod$lambda==cv.lasso.mod$lambda.min]
-bestlam.cvup2 <- cv.lasso.mod2$cvup[cv.lasso.mod2$lambda==cv.lasso.mod2$lambda.min]
-
-
-lasso.stats %>% 
-  ggplot(aes(x=lambda, y=cverror)) +
-  geom_vline(xintercept = cv.lasso.mod$lambda.min, color="blue", alpha=.5) +
-  geom_hline(yintercept = bestlam.cvup, color="blue", alpha=.5) +
-  geom_vline(xintercept = cv.lasso.mod$lambda.1se, color="orange", alpha=.5) +
-  geom_errorbar(aes(ymin=lower, ymax=upper),color="darkgray") +
-  geom_point(color="red") +
-  scale_x_log10() +
-  theme_minimal() +
-  xlim(0, 0.002) 
-```
-
-```{r}
-lasso.stats2 %>% 
-  ggplot(aes(x=lambda, y=cverror)) +
-  geom_vline(xintercept = cv.lasso.mod2$lambda.min, color="blue", alpha=.5) +
-  geom_hline(yintercept = bestlam.cvup2, color="blue", alpha=.5) +
-  geom_vline(xintercept = cv.lasso.mod2$lambda.1se, color="orange", alpha=.5) +
-  geom_errorbar(aes(ymin=lower, ymax=upper),color="darkgray") +
-  geom_point(color="red") +
-  scale_x_log10() +
-  theme_minimal() +
-  xlim(0, 0.05) 
-```
-
-THIS GRAPH WILL HELP YOU SEE MORE CLEARLY THE VALUES OF LAMBDA. I have rounded the values.
-
-```{r}
-lasso.stats %>% 
-  ggplot(aes(x=lambda, y=cverror)) +
-  geom_vline(xintercept = cv.lasso.mod$lambda.min, color="blue", alpha=.5) +
-  geom_hline(yintercept = bestlam.cvup, color="blue", alpha=.5) +
-  geom_vline(xintercept = cv.lasso.mod$lambda.1se, color="orange", alpha=.5) +
-  geom_errorbar(aes(ymin=lower, ymax=upper),color="darkgray") +
-  geom_point(color="red") +
-  geom_text(aes(label = round(lambda,0)), size=3, nudge_y = 5000, angle=45) +
-  scale_x_log10() +
-  theme_minimal()
-```
-
-How do I see the models that were fit? We can use the *predict* function and tell it we want the coefficients as output and give it new values of *lambda*. Below, we look at the models for the value of $\lambda$ with the smallest cv error and the largest value of $\lambda$ with cv error within one se of the smallest cv error, and $\lambda= 25$, which is between the two. NOTE: I HAD A MISTAKE IN THIS PIECE OF CODE!!! I originally had *lasso.mod.hitters* and it should be *cv.lasso.mod*.
+To see the models that were fit, we use the *predict* function with three different values of *lambda*. Below, we look at the models for the value of $\lambda$ with the smallest test error, the value of $\lambda$ with the largest test error within one standard deviation of the smallest test error, and $\lambda= 0.0004$, which is between the two. 
 
 ```{r}
 predict(cv.lasso.mod, 
         type="coefficients", 
-        s = c(cv.lasso.mod$lambda.min, cv.lasso.mod$lambda.1se, 0.001))
+        s = c(cv.lasso.mod$lambda.min, cv.lasso.mod$lambda.1se, 0.008))
 ```
 
 ```{r}
 predict(cv.lasso.mod2, 
         type="coefficients", 
-        s = c(cv.lasso.mod2$lambda.min, cv.lasso.mod2$lambda.1se, 0.006))
+        s = c(cv.lasso.mod2$lambda.min, cv.lasso.mod2$lambda.1se, 0.0075))
 ```
-1 standard deviation away from the mean test error, the lasso method gives us a model with only 4 variables. This model is for Version 2 of the readmitted variable, which treats patients readmitted before 30 days as its own level, and all other patients (readmitted after 30 days or not readmitted at all) as a separate level. 
+Using a lambda value of 0.0075, the lasso method gives us a model with only 4 variables, which is quite simple. This model is for Version 2 of the readmitted variable, which treats patients readmitted before 30 days as its own level, and all other patients (readmitted after 30 days or not readmitted at all) as a separate level. 
 
+Below we use the first version of the readmitted variable to calculate the test error rate of our model with an optimized value of lambda. 
 
-**QUESTIONS**
+Model 1's Test Error Rate
+```{r}
+newX <- model.matrix(factor(readmitted) ~., data = validation[-c(27)])[,-1] #diabetes3
+pred = predict(cv.lasso.mod,newx = newX, type = "response")
+pred_class <- as.numeric(pred > 0.5)
+table(validation$readmitted, pred_class)
+error = (10375 + 4607)/(8302 + 10375 + 4607 + 17336)
+error
+```
 
-* How would you go about using this method to build a model?
-* What if you want to compare this method with another method, like forward selection?
+Model 2's Test Error Rate
+```{r}
+newX <- model.matrix(factor(readmitted) ~., data = validation2[-c(27)])[,-1] #diabetes3
+pred = predict(cv.lasso.mod2,newx = newX, type = "response", s = c(0.0075))
+pred_class <- as.numeric(pred > 0.5)
+table(validation2$readmitted, pred_class)
+error = (4483 + 54)/(47 + 4483 + 54 + 35983)
+error
+```
+
+Since the test error rate of Model 1 is nearly 37%, we're going to choose Model 2 as the best predictive model for readmission rates because Model 2's test error is only about 11%. Model 2's equation is below.
+$$
+readmitted = -0.00066(numberemergency) + -0.24(numberinpatient) + \\ -0.0064(numberdiagnoses)
++ -0.37*I(dischargedisposition)
+$$
+
+Note: I is 1 if the patient was transferred to another facility following the incident.
+
+Next we compute the odds that a diabetes patient is readmitted to the hospital within 30 days based on the number of emergency visits recorded prior to the incident, the number of inpatient visits recorded prior to the incident, the number of diagnoses made at the hospital, and whether the patient was transferred to another hospital following the incident.
 
 ```{r}
-predict(cv.lasso.mod, type="coefficients", 
-        s=c(cv.lasso.mod$lambda.1se))
+odds_emer = exp(coef(cv.lasso.mod2, s = c(0.0075))[23])
+odds_emer
 ```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .99, given the number of emergency room visits.
 ```{r}
-predict(cv.lasso.mod2, type="coefficients", 
-        s=c(cv.lasso.mod2$lambda.1se))
+odds_inpat = exp(coef(cv.lasso.mod2, s = c(0.0075))[24])
+odds_inpat
+```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .79, given the number of inpatient visits.
+```{r}
+odds_diag = exp(coef(cv.lasso.mod2, s = c(0.0075))[25])
+odds_diag
+```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .99, given the number of diagnoses.
+```{r}
+odds_transfer = exp(coef(cv.lasso.mod2, s = c(0.0075))[64])
+odds_transfer
+```
+The odds of a patient being readmitted to the hospital within 30 days are multiplied by a factor of .69, given that the patient was transferred to another facility.
+
+### Conclusion
+
+In conclusion, we built a logistic model to help predict hospital readmission rates for diabetes patients. We defined readmission with two variable transformations. After using the lasso method to compare model error rates, we ended up choosing the definition that either a patient was readmitted within 30 days or the patient was not. Our final model is the following: $readmitted = -0.00066(numberemergency) + -0.24(numberinpatient) + -0.0064(numberdiagnoses)+ -0.37*I(dischargedisposition)$. The number of emergency room and inpatient visits prior to the incident, number of diagnoses, and whether the patient was transferred to another facility ended up being important variables to predict hospital readmission.
+
+### Appendix
+
+```{r, eval=FALSE}
+diabetes2 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(YES = c("<30",">30")))
 ```
 
+```{r, eval=FALSE}
+diabetes3 <- diabetes %>% 
+  mutate(readmitted = readmitted %>% fct_collapse(NO = c("NO",">30")))
+```
